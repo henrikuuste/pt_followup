@@ -223,17 +223,24 @@ struct PathTracer {
 
   void render(Scene const &scene, Camera const &cam, AppContext &ctx, std::vector<Pixel> &image) {
     // 	foreach pixel in imageBuffer:
-    size_t idx = 0;
+    size_t idx         = 0;
+    Radiance avgChange = Radiance::Zero();
     for (auto &pixel : image) {
       // 		for sample in range(0, N):
       // for (size_t sample = 0; sample < ctx.samples; ++sample)
       // 			pixel.radiance += trace(camera.castRay(pixel.xy)) / N
-      radianceBuffer[idx] += trace(scene, cam.castRay(pixel.xy), ctx);
+      Radiance rSample = trace(scene, cam.castRay(pixel.xy), ctx);
+      radianceBuffer[idx] += rSample;
+      Radiance change = rSample.cwiseQuotient(radianceBuffer[idx]);
+      if (not change.hasNaN())
+        avgChange += change;
 
       // 		pixel.color = pixel.toSRGB()
       pixel.color = toSRGB((radianceBuffer[idx] / (ctx.frame + 1)) * ctx.exposure, ctx);
       idx++;
     }
+    avgChange /= image.size();
+    ctx.renderError = avgChange.maxCoeff();
   }
 
   bool shouldTerminate(Ray const &r, AppContext &ctx) const { return r.depth > ctx.max_depth; }

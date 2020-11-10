@@ -1,6 +1,10 @@
 #include "full_screen_opengl.h"
 
+#include <chrono>
 // #include <cuda_gl_interop.h>
+
+using Time = std::chrono::steady_clock;
+using Fsec = std::chrono::duration<float>;
 
 FullScreenOpenGLScene::FullScreenOpenGLScene(sf::RenderWindow const &window) {
   glewInit();
@@ -42,7 +46,10 @@ void FullScreenOpenGLScene::update([[maybe_unused]] AppContext &ctx) {
   // CUDA_CALL(cudaGraphicsResourceGetMappedPointer((void **)&vboPtr_, &num_bytes, cudaVBO_));
   // renderCuda();
   // CUDA_CALL(cudaGraphicsUnmapResources(1, &cudaVBO_, 0));
+  auto start = Time::now();
   pt_.render(scene_, cam_, ctx, screenBuffer_);
+  auto finish         = Time::now();
+  ctx.elapsed_seconds = Fsec{finish - start}.count();
 
   glBindBuffer(GL_ARRAY_BUFFER, glVBO_);
   glBufferData(GL_ARRAY_BUFFER, screenBuffer_.size() * sizeof(Pixel), screenBuffer_.data(),
