@@ -223,23 +223,28 @@ struct PathTracer {
 
   void render(Scene const &scene, Camera const &cam, AppContext &ctx, std::vector<Pixel> &image) {
     // 	foreach pixel in imageBuffer:
-    size_t idx         = 0;
-    Radiance avgChange = Radiance::Zero();
+    size_t idx           = 0;
+    Radiance avgChange   = Radiance::Zero();
+    size_t changeSamples = 0;
     for (auto &pixel : image) {
       // 		for sample in range(0, N):
       // for (size_t sample = 0; sample < ctx.samples; ++sample)
       // 			pixel.radiance += trace(camera.castRay(pixel.xy)) / N
       Radiance rSample = trace(scene, cam.castRay(pixel.xy), ctx);
       radianceBuffer[idx] += rSample;
-      Radiance change = rSample.cwiseQuotient(radianceBuffer[idx]);
-      if (not change.hasNaN())
-        avgChange += change;
+      if (not rSample.isZero()) {
+        Radiance change = rSample.cwiseQuotient(radianceBuffer[idx]);
+        if (not change.hasNaN()) {
+          avgChange += change;
+          changeSamples++;
+        }
+      }
 
       // 		pixel.color = pixel.toSRGB()
       pixel.color = toSRGB((radianceBuffer[idx] / (ctx.frame + 1)) * ctx.exposure, ctx);
       idx++;
     }
-    avgChange /= image.size();
+    avgChange /= changeSamples;
     ctx.renderError = avgChange.maxCoeff();
   }
 
