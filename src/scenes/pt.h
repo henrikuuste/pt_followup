@@ -51,9 +51,11 @@ struct Camera {
   float w, h;
   float fov = R_PI * .5f;
   Ray castRay(Vec2 const &coord) const {
-    Vec3 u = Vec3::UnitX() * fov;
-    Vec3 v = Vec3::UnitY() * fov * h / w;
-    Vec3 d = u * (coord.x() / w - .5) + v * (coord.y() / h - .5) + Vec3::UnitZ();
+    Vec3 u   = Vec3::UnitX() * fov;
+    Vec3 v   = Vec3::UnitY() * fov * h / w;
+    Vec2 rnd = Sampler::sample2D();
+    Vec3 d =
+        u * ((coord.x() + rnd.x()) / w - .5) + v * ((coord.y() + rnd.y()) / h - .5) + Vec3::UnitZ();
     return {tr.translation(), tr.linear() * d.normalized()};
   }
 };
