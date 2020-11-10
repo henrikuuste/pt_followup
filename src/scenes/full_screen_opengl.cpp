@@ -18,7 +18,7 @@ FullScreenOpenGLScene::FullScreenOpenGLScene(sf::RenderWindow const &window) {
   glBindBuffer(GL_ARRAY_BUFFER, glVBO_);
 
   // initialize VBO
-  width  = window.getSize().x;
+  width  = window.getSize().x * 0.6;
   height = window.getSize().y;
   glBufferData(GL_ARRAY_BUFFER, width * height * sizeof(Pixel), 0, GL_DYNAMIC_DRAW);
   glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -59,7 +59,7 @@ void FullScreenOpenGLScene::update([[maybe_unused]] AppContext &ctx) {
 void FullScreenOpenGLScene::render(sf::RenderWindow &window) {
   window.pushGLStates();
 
-  glClearColor(0.2f, 0.0f, 0.0f, 0.0f);
+  glClearColor(0.1f, 0.1f, 0.1f, 0.0f);
   glMatrixMode(GL_PROJECTION);
   glLoadIdentity();
   glOrtho(0.0, static_cast<GLdouble>(window.getSize().x), 0.0,

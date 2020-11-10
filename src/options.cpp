@@ -8,11 +8,11 @@ static constexpr auto USAGE =
   Options:
           -h --help         Show this screen.
           -v --verbose      Verbose output.
-          --width=WIDTH     Screen width in pixels [default: 512].
+          --width=WIDTH     Screen width in pixels [default: 1024].
           --height=HEIGHT   Screen height in pixels [default: 384].
 )";
 
-Options::Options(std::vector<std::string> const& argv) {
+Options::Options(std::vector<std::string> const &argv) {
   args = docopt::docopt(USAGE, argv,
                         true,     // show help if requested
                         "0.0.0"); // version string
