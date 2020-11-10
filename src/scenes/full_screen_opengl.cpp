@@ -92,16 +92,16 @@ void FullScreenOpenGLScene::initScene() {
   const float roomR = 4.f;
   const float wallD = wallR + roomR;
 
-  scene_.objects.push_back({{-1, -roomR + 1.f, -1}, 1.f, white});
-  scene_.objects.push_back({{2, -roomR + 2.f, -2}, 2.f, blue});
+  scene_.objects.push_back({Sphere{1.f}, white, {-1, -roomR + 1.f, -1}});
+  scene_.objects.push_back({Sphere{2.f}, blue, {2, -roomR + 2.f, -2}});
 
-  scene_.objects.push_back({-Vec3::UnitY() * wallD, wallR, white});
-  scene_.objects.push_back({Vec3::UnitY() * wallD, wallR, whiteLight});
+  scene_.objects.push_back({Plane{Vec3::UnitY()}, white, -Vec3::UnitY() * roomR});
+  scene_.objects.push_back({Plane{-Vec3::UnitY()}, whiteLight, Vec3::UnitY() * roomR});
 
-  scene_.objects.push_back({Vec3::UnitX() * wallD, wallR, red});
-  scene_.objects.push_back({-Vec3::UnitX() * wallD, wallR, green});
+  scene_.objects.push_back({Plane{-Vec3::UnitX()}, red, Vec3::UnitX() * roomR});
+  scene_.objects.push_back({Plane{Vec3::UnitX()}, green, -Vec3::UnitX() * roomR});
 
-  scene_.objects.push_back({-Vec3::UnitZ() * wallD, wallR, white});
+  scene_.objects.push_back({Plane{Vec3::UnitZ()}, white, -Vec3::UnitZ() * roomR});
 
   pt_.reset(cam_);
 }

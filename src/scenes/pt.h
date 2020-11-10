@@ -28,10 +28,6 @@ struct MaterialSample {
   float pdf;
 };
 
-// enum ObjectType {
-//   SPHERE,
-//   PLANE,
-// };
 struct Object;
 
 struct Intersection {
@@ -76,13 +72,15 @@ struct Material {
   }
 };
 
-struct Object {
-  // ObjectType type;
-  Vec3 pos;
-  float radius;
-  Material mat;
-  Intersection intersect(Ray const &r) const {
-    Vec3 L    = pos - r.origin;
+enum ObjectType {
+  SPHERE,
+  PLANE,
+};
+
+struct Sphere {
+  float radius = 1.f;
+  Intersection intersect(Ray const &r, Object const *obj) const {
+    Vec3 L    = -r.origin;
     float tca = L.dot(r.dir);
     if (tca < 0)
       return {};
@@ -102,7 +100,57 @@ struct Object {
     }
 
     Vec3 x = r.origin + r.dir * t0;
-    return {t0, this, x, (x - pos).normalized()};
+    return {t0, obj, x, x.normalized()};
+  }
+};
+
+struct Plane {
+  Vec3 normal = Vec3::UnitY();
+  Intersection intersect(Ray const &r, Object const *obj) const {
+    float denom = normal.dot(-r.dir);
+    if (denom < EPSILON)
+      return {};
+
+    float t   = r.origin.dot(normal) / denom;
+    if (t < 0)
+      return {};
+    Vec3 x = r.origin + r.dir * t;
+    return {t, obj, x, normal};
+  }
+};
+
+struct Object {
+  Material mat;
+  ObjectType type;
+  Vec3 pos;
+
+  union {
+      Sphere sphere;
+      Plane plane;
+  };
+
+  Object(Sphere const &obj, Material const &m, Vec3 const &p)
+      : mat(m), type(SPHERE), pos(p), sphere(obj) {}
+  Object(Plane const &obj, Material const &m, Vec3 const &p)
+      : mat(m), type(PLANE), pos(p), plane(obj) {}
+  Object(Object const &o) : mat(o.mat), type(o.type), pos(o.pos) {
+    if (type == SPHERE)
+      sphere = o.sphere;
+    else
+      plane = o.plane;
+  }
+
+  Intersection intersect(Ray const &r) const {
+    Ray local = r;
+    local.origin -= pos;
+    Intersection isect;
+    if (type == SPHERE) {
+        isect = sphere.intersect(local, this);
+    } else {
+      isect = plane.intersect(local, this);
+    }
+    isect.x += pos;
+    return isect;
   }
 };
 
