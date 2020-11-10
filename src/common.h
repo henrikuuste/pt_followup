@@ -39,7 +39,7 @@ struct AppContext {
   size_t frame          = 0;
   float dtime           = 0.f;
   float elapsed_seconds = 0.f;
-  float renderProgress  = 0.f;
+  float renderError     = 0.f;
   float exposure        = 1.f;
   float gamma           = 2.4f;
   int max_depth         = 2;
