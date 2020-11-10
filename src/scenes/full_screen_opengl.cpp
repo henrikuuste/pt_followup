@@ -75,13 +75,14 @@ void FullScreenOpenGLScene::render(sf::RenderWindow &window) {
 }
 
 void FullScreenOpenGLScene::initScene() {
-  cam_.w   = width;
-  cam_.h   = height;
-  cam_.fov = R_PI * 0.4f;
-  cam_.pos << 0, 0, 11;
-  cam_.dir = -Vec3::UnitZ();
+  cam_.w = width;
+  cam_.h = height;
+  cam_.pos << 0, 0, 14;
+  cam_.fov = R_PI * 0.45;
+  cam_.dir = Vec3(0.f, 0.f, -1.f).normalized();
 
   Material whiteLight{{0, 0, 0}, {1, 1, 1}};
+  Material yellowLight{{0, 0, 0}, {2, 1.5, 1}};
 
   Material white{{1, 1, 1}};
   Material red{{1, .2, .2}};
@@ -92,16 +93,18 @@ void FullScreenOpenGLScene::initScene() {
   const float roomR = 4.f;
   const float wallD = wallR + roomR;
 
-  scene_.objects.push_back({{-1, -roomR + 1.f, -1}, 1.f, white});
-  scene_.objects.push_back({{2, -roomR + 2.f, -2}, 2.f, blue});
+  scene_.objects.push_back({Sphere{1.f}, whiteLight, {-1, -roomR + 1.f, -1}});
+  scene_.objects.push_back({Sphere{2.f}, white, {2, -roomR + 2.f, -2}});
 
-  scene_.objects.push_back({-Vec3::UnitY() * wallD, wallR, white});
-  scene_.objects.push_back({Vec3::UnitY() * wallD, wallR, whiteLight});
+  scene_.objects.push_back({Disc{-Vec3::UnitY(), 2.f}, yellowLight, {0, roomR * 0.99f, 2.f}});
 
-  scene_.objects.push_back({Vec3::UnitX() * wallD, wallR, red});
-  scene_.objects.push_back({-Vec3::UnitX() * wallD, wallR, green});
+  scene_.objects.push_back({Plane{Vec3::UnitY()}, white, -Vec3::UnitY() * roomR});
+  scene_.objects.push_back({Plane{-Vec3::UnitY()}, white, Vec3::UnitY() * roomR});
 
-  scene_.objects.push_back({-Vec3::UnitZ() * wallD, wallR, white});
+  scene_.objects.push_back({Plane{-Vec3::UnitX()}, red, Vec3::UnitX() * roomR});
+  scene_.objects.push_back({Plane{Vec3::UnitX()}, green, -Vec3::UnitX() * roomR});
+
+  scene_.objects.push_back({Plane{Vec3::UnitZ()}, blue, -Vec3::UnitZ() * roomR});
 
   pt_.reset(cam_);
 }
