@@ -12,6 +12,10 @@ struct Ray {
   int depth = 1;
 };
 
+inline Ray operator*(Affine const &t, Ray const &r) {
+  return {t * r.origin, t.linear() * r.dir, r.depth};
+}
+
 inline std::random_device rd;  // Will be used to obtain a seed for the random number engine
 inline std::mt19937 gen(rd()); // Standard mersenne_twister_engine seeded with rd()
 inline std::uniform_real_distribution<float> dis(0.0f, 1.f);
@@ -43,15 +47,14 @@ struct Intersection {
 };
 
 struct Camera {
-  Vec3 pos;
-  Vec3 dir;
+  Affine tr = Affine::Identity();
   float w, h;
-  float fov;
+  float fov = R_PI * .5f;
   Ray castRay(Vec2 const &coord) const {
     Vec3 u = Vec3::UnitX() * fov;
     Vec3 v = Vec3::UnitY() * fov * h / w;
-    Vec3 d = u * (coord.x() / w - .5) + v * (coord.y() / h - .5) + dir;
-    return {pos, d.normalized()};
+    Vec3 d = u * (coord.x() / w - .5) + v * (coord.y() / h - .5) + Vec3::UnitZ();
+    return {tr.translation(), tr.linear() * d.normalized()};
   }
 };
 
@@ -106,7 +109,7 @@ struct Plane {
     if (denom < EPSILON)
       return {};
 
-    float t   = r.origin.dot(normal) / denom;
+    float t = r.origin.dot(normal) / denom;
     if (t < 0)
       return {};
     Vec3 x = r.origin + r.dir * t;
@@ -141,7 +144,8 @@ enum ObjectType {
 struct Object {
   Material mat;
   ObjectType type;
-  Vec3 pos;
+  Affine tr;
+  Affine invTr;
 
   union {
     Sphere sphere;
@@ -149,13 +153,17 @@ struct Object {
     Disc disc;
   };
 
-  Object(Sphere const &obj, Material const &m, Vec3 const &p)
-      : mat(m), type(SPHERE), pos(p), sphere(obj) {}
-  Object(Plane const &obj, Material const &m, Vec3 const &p)
-      : mat(m), type(PLANE), pos(p), plane(obj) {}
-  Object(Disc const &obj, Material const &m, Vec3 const &p)
-      : mat(m), type(DISC), pos(p), disc(obj) {}
-  Object(Object const &o) : mat(o.mat), type(o.type), pos(o.pos) {
+  Object(Sphere const &obj, Material const &m, Affine const &t)
+      : mat(m), type(SPHERE), sphere(obj) {
+    setTransform(t);
+  }
+  Object(Plane const &obj, Material const &m, Affine const &t) : mat(m), type(PLANE), plane(obj) {
+    setTransform(t);
+  }
+  Object(Disc const &obj, Material const &m, Affine const &t) : mat(m), type(DISC), disc(obj) {
+    setTransform(t);
+  }
+  Object(Object const &o) : mat(o.mat), type(o.type), tr(o.tr), invTr(o.invTr) {
     if (type == SPHERE)
       sphere = o.sphere;
     else if (type == DISC)
@@ -164,9 +172,13 @@ struct Object {
       plane = o.plane;
   }
 
+  void setTransform(Affine const &t) {
+    tr    = t;
+    invTr = t.inverse();
+  }
+
   Intersection intersect(Ray const &r) const {
-    Ray local = r;
-    local.origin -= pos;
+    Ray local = invTr * r;
     Intersection isect;
     if (type == SPHERE)
       isect = sphere.intersect(local, this);
@@ -174,8 +186,10 @@ struct Object {
       isect = disc.intersect(local, this);
     else
       isect = plane.intersect(local, this);
-    if(isect)
-      isect.x += pos;
+    if (isect) {
+      isect.x = tr * isect.x;
+      isect.n = tr.linear() * isect.n;
+    }
     return isect;
   }
 };

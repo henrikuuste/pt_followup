@@ -11,6 +11,9 @@
 using Vec3     = Eigen::Vector3f;
 using Vec2     = Eigen::Vector2f;
 using Radiance = Vec3;
+using Affine   = Eigen::Affine3f;
+using AngAx    = Eigen::AngleAxisf;
+using Quat     = Eigen::Quaternionf;
 
 #define R_PI float(EIGEN_PI)
 #define R_INVPI float(1.f / R_PI)
