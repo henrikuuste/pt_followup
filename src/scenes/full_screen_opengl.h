@@ -7,6 +7,9 @@
 
 #include <SFML/Graphics/RenderWindow.hpp>
 
+#include <functional>
+#include <future>
+
 class FullScreenOpenGLScene {
 public:
   FullScreenOpenGLScene(sf::RenderWindow const &window);
@@ -18,6 +21,7 @@ public:
 
 private:
   void initScene();
+  void runPT(AppContext &ctx);
 
   unsigned int width, height;
 
@@ -28,4 +32,5 @@ private:
   PathTracer pt_;
   Scene scene_;
   Camera cam_;
+  std::atomic_bool renderingPT = false;
 };

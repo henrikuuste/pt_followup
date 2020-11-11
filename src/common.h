@@ -2,7 +2,9 @@
 
 #include <spdlog/spdlog.h>
 
+#pragma warning(push, 0)
 #include <Eigen/Dense>
+#pragma warning(pop)
 
 #include <cstdint>
 #include <map>
