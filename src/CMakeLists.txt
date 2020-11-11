@@ -3,7 +3,8 @@ add_executable(sfml_cuda
     options.cpp
     scenes/full_screen_opengl.cpp
     # scenes/full_screen_opengl.cu
-)
+    scenes/pt.cpp
+  "scenes/sampler_std.h" "scenes/sampler.h" "scenes/pt_math.h")
 # target_compile_options(sfml_cuda PRIVATE                        
 #     $<$<COMPILE_LANGUAGE:CUDA>:${ARCH_FLAGS} --expt-relaxed-constexpr>
 # )
