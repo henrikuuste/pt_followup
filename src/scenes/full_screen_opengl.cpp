@@ -137,6 +137,7 @@ void FullScreenOpenGLScene::initScene() {
 }
 
 void FullScreenOpenGLScene::resetBuffer(AppContext &ctx) {
+  runPTHandle.wait();
   std::fill(pt_.radianceBuffer.begin(), pt_.radianceBuffer.end(), Radiance::Zero());
   ctx.frame   = 0;
   ctx.ptFrame = 0;

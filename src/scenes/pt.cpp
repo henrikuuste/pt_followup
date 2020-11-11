@@ -30,7 +30,6 @@ Radiance trace(Scene const &scene, Ray const &wo, TraceContext &ctx) {
 
 void PathTracer::render(Scene const &scene, Camera const &cam, AppContext &ctx,
                         std::vector<Pixel> &image) {
-  // size_t idx = 0;
 
   SamplerStd smp;
   smp.init(ctx.ptFrame + 1, 0);
@@ -41,9 +40,6 @@ void PathTracer::render(Scene const &scene, Camera const &cam, AppContext &ctx,
 
   Radiance avgChange   = Radiance::Zero();
   size_t changeSamples = 0;
-  omp_lock_t writelock;
-
-  //   omp_init_lock(&writelock);
 
 #pragma omp parallel for
   for (int idx = 0; idx < (int)image.size(); ++idx) { // auto &pixel : image
@@ -60,11 +56,9 @@ void PathTracer::render(Scene const &scene, Camera const &cam, AppContext &ctx,
     }
 
     pixel.color = toSRGB((radianceBuffer[idx] / (ctx.ptFrame + 1)), tctx);
-    // idx++;
   }
   avgChange /= changeSamples;
   ctx.renderError = avgChange.maxCoeff();
-  // omp_destroy_lock(&writelock);
 }
 
 /**********************************
