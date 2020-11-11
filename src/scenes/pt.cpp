@@ -30,10 +30,10 @@ Radiance trace(Scene const &scene, Ray const &wo, TraceContext &ctx) {
 
 void PathTracer::render(Scene const &scene, Camera const &cam, AppContext &ctx,
                         std::vector<Pixel> &image) {
-  size_t idx = 0;
+  // size_t idx = 0;
 
   SamplerStd smp;
-  smp.init(ctx.ptFrame + 1, idx);
+  smp.init(ctx.ptFrame + 1, 0);
 
   TraceContext tctx;
   tctx.app     = &ctx;
@@ -45,10 +45,10 @@ void PathTracer::render(Scene const &scene, Camera const &cam, AppContext &ctx,
 
   //   omp_init_lock(&writelock);
 
-  // #pragma omp parallel for
-  for (int i = 0; i < (int)image.size(); ++i) { // auto &pixel : image
-    auto pixel       = &image.at(i);
-    Ray primary      = cam.castRay(pixel->xy, tctx);
+#pragma omp parallel for
+  for (int idx = 0; idx < (int)image.size(); ++idx) { // auto &pixel : image
+    auto &pixel      = image.at(idx);
+    Ray primary      = cam.castRay(pixel.xy, tctx);
     Radiance rSample = trace(scene, primary, tctx);
     radianceBuffer[idx] += rSample;
     if (not rSample.isZero()) {
@@ -59,8 +59,8 @@ void PathTracer::render(Scene const &scene, Camera const &cam, AppContext &ctx,
       }
     }
 
-    pixel->color = toSRGB((radianceBuffer[idx] / (ctx.ptFrame + 1)), tctx);
-    idx++;
+    pixel.color = toSRGB((radianceBuffer[idx] / (ctx.ptFrame + 1)), tctx);
+    // idx++;
   }
   avgChange /= changeSamples;
   ctx.renderError = avgChange.maxCoeff();
