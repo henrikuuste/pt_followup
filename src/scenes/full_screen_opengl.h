@@ -21,8 +21,7 @@ public:
 
 private:
   void initScene();
-  void runPT(AppContext &ctx);
-
+  std::future<void> runPTHandle;
   unsigned int width, height;
 
   std::vector<Pixel> screenBuffer_;

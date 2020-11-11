@@ -40,28 +40,24 @@ FullScreenOpenGLScene::FullScreenOpenGLScene(sf::RenderWindow const &window) {
 
 FullScreenOpenGLScene::~FullScreenOpenGLScene() { glDeleteBuffers(1, &glVBO_); }
 
-void FullScreenOpenGLScene::runPT(AppContext &ctx) {
-  auto start = Time::now();
-  pt_.render(scene_, cam_, ctx, screenBuffer_);
-  auto finish         = Time::now();
-  ctx.elapsed_seconds = Fsec{finish - start}.count();
-  renderingPT         = false;
-}
-
 void FullScreenOpenGLScene::update([[maybe_unused]] AppContext &ctx) {
   // CUDA_CALL(cudaGraphicsMapResources(1, &cudaVBO_, 0));
   // size_t num_bytes;
   // CUDA_CALL(cudaGraphicsResourceGetMappedPointer((void **)&vboPtr_, &num_bytes, cudaVBO_));
   // renderCuda();
   // CUDA_CALL(cudaGraphicsUnmapResources(1, &cudaVBO_, 0));
-  if (!renderingPT) {
+  if (not renderingPT.load()) {
     glBindBuffer(GL_ARRAY_BUFFER, glVBO_);
     glBufferData(GL_ARRAY_BUFFER, screenBuffer_.size() * sizeof(Pixel), screenBuffer_.data(),
                  GL_DYNAMIC_DRAW);
-  }
-  if (!renderingPT) {
-    renderingPT   = true;
-    auto ptThread = std::async(std::launch::async, [&ctx, this]() { runPT(ctx); });
+    renderingPT = true;
+    runPTHandle = std::async(std::launch::async, [&]() {
+      auto start = Time::now();
+      pt_.render(scene_, cam_, ctx, screenBuffer_);
+      auto finish         = Time::now();
+      ctx.elapsed_seconds = Fsec{finish - start}.count();
+      renderingPT         = false;
+    });
   }
 }
 
