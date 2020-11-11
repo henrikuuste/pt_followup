@@ -103,8 +103,9 @@ void FullScreenOpenGLScene::initScene() {
 
   Affine tr = Affine::Identity();
   tr.translation() << -1, -roomR + 1.f, -1;
-
+  tr.scale(1.5f);
   scene_.objects.push_back({Sphere{1.f}, whiteLight, tr});
+  tr.setIdentity();
   tr.translation() << 2, -roomR + 2.f, -2;
   scene_.objects.push_back({Sphere{2.f}, white, tr});
 
@@ -113,10 +114,14 @@ void FullScreenOpenGLScene::initScene() {
   tr.translation() << Vec3::UnitY() * roomR;
   scene_.objects.push_back({Plane{-Vec3::UnitY()}, white, tr});
 
+  tr.rotate(AngAx(R_PI * .1f, Vec3::UnitZ()));
   tr.translation() << Vec3::UnitX() * roomR;
   scene_.objects.push_back({Plane{-Vec3::UnitX()}, red, tr});
+  tr.setIdentity();
+  tr.rotate(AngAx(-R_PI * .1f, Vec3::UnitZ()));
   tr.translation() << -Vec3::UnitX() * roomR;
   scene_.objects.push_back({Plane{Vec3::UnitX()}, green, tr});
+  tr.setIdentity();
 
   tr.translation() << -Vec3::UnitZ() * roomR;
   scene_.objects.push_back({Plane{Vec3::UnitZ()}, blue, tr});

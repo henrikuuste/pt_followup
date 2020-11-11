@@ -75,6 +75,8 @@ struct Object {
   ObjectType type;
   Affine tr;
   Affine invTr;
+  Quat rot;
+  Quat invRot;
 
   union {
     Sphere sphere;
@@ -92,7 +94,8 @@ struct Object {
   Object(Disc const &obj, Material const &m, Affine const &t) : mat(m), type(DISC), disc(obj) {
     setTransform(t);
   }
-  Object(Object const &o) : mat(o.mat), type(o.type), tr(o.tr), invTr(o.invTr) {
+  Object(Object const &o) : mat(o.mat), type(o.type) {
+    setTransform(o.tr);
     if (type == SPHERE)
       sphere = o.sphere;
     else if (type == DISC)
@@ -104,6 +107,8 @@ struct Object {
   void setTransform(Affine const &t) {
     tr    = t;
     invTr = t.inverse();
+    rot    = tr.rotation();
+    invRot = invTr.rotation();
   }
 
   Intersection intersect(Ray const &r) const;
