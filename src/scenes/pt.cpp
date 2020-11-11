@@ -1,6 +1,7 @@
 #include "pt.h"
 #include "sampler_std.h"
 
+#include <omp.h>
 #include <random>
 
 /**********************************
@@ -40,8 +41,14 @@ void PathTracer::render(Scene const &scene, Camera const &cam, AppContext &ctx,
 
   Radiance avgChange   = Radiance::Zero();
   size_t changeSamples = 0;
-  for (auto &pixel : image) {
-    Ray primary      = cam.castRay(pixel.xy, tctx);
+  omp_lock_t writelock;
+
+  //   omp_init_lock(&writelock);
+
+  // #pragma omp parallel for
+  for (int i = 0; i < (int)image.size(); ++i) { // auto &pixel : image
+    auto pixel       = &image.at(i);
+    Ray primary      = cam.castRay(pixel->xy, tctx);
     Radiance rSample = trace(scene, primary, tctx);
     radianceBuffer[idx] += rSample;
     if (not rSample.isZero()) {
@@ -52,11 +59,12 @@ void PathTracer::render(Scene const &scene, Camera const &cam, AppContext &ctx,
       }
     }
 
-    pixel.color = toSRGB((radianceBuffer[idx] / (ctx.ptFrame + 1)), tctx);
+    pixel->color = toSRGB((radianceBuffer[idx] / (ctx.ptFrame + 1)), tctx);
     idx++;
   }
   avgChange /= changeSamples;
   ctx.renderError = avgChange.maxCoeff();
+  // omp_destroy_lock(&writelock);
 }
 
 /**********************************

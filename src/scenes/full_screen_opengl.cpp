@@ -38,7 +38,10 @@ FullScreenOpenGLScene::FullScreenOpenGLScene(sf::RenderWindow const &window) {
   initScene();
 }
 
-FullScreenOpenGLScene::~FullScreenOpenGLScene() { glDeleteBuffers(1, &glVBO_); }
+FullScreenOpenGLScene::~FullScreenOpenGLScene() {
+  runPTHandle.wait();
+  glDeleteBuffers(1, &glVBO_);
+}
 
 void FullScreenOpenGLScene::update([[maybe_unused]] AppContext &ctx) {
   // CUDA_CALL(cudaGraphicsMapResources(1, &cudaVBO_, 0));
