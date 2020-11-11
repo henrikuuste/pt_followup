@@ -24,6 +24,7 @@ int main(int argc, const char **argv) {
   sf::RenderWindow window(sf::VideoMode(opt.width, opt.height), "SFML + CUDA",
                           sf::Style::Titlebar | sf::Style::Close);
   ImGui::SFML::Init(window);
+  window.setFramerateLimit(144);
   spdlog::info("SFML window created");
 
   FullScreenOpenGLScene scene(window);
@@ -37,7 +38,7 @@ int main(int argc, const char **argv) {
 
     ImGui::Begin("Stats");
     ImGui::Text("%.1f FPS", ImGui::GetIO().Framerate);
-    ImGui::Text("%d SPP", ctx.frame);
+    ImGui::Text("%d SPP", ctx.ptFrame);
     ImGui::Text("%.3f s per SPP", ctx.elapsed_seconds);
     ImGui::Text("%.2f %% error", ctx.renderError * 100.f);
     ImGui::End();

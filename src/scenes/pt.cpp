@@ -29,13 +29,13 @@ Radiance trace(Scene const &scene, Ray const &wo, TraceContext &ctx) {
 
 void PathTracer::render(Scene const &scene, Camera const &cam, AppContext &ctx,
                         std::vector<Pixel> &image) {
-  size_t idx           = 0;
+  size_t idx = 0;
 
   SamplerStd smp;
-  smp.init(ctx.frame + 1, idx);
+  smp.init(ctx.ptFrame + 1, idx);
 
   TraceContext tctx;
-  tctx.app = &ctx;
+  tctx.app     = &ctx;
   tctx.sampler = &smp;
 
   Radiance avgChange   = Radiance::Zero();
@@ -52,7 +52,7 @@ void PathTracer::render(Scene const &scene, Camera const &cam, AppContext &ctx,
       }
     }
 
-    pixel.color = toSRGB((radianceBuffer[idx] / (ctx.frame + 1)), tctx);
+    pixel.color = toSRGB((radianceBuffer[idx] / (ctx.ptFrame + 1)), tctx);
     idx++;
   }
   avgChange /= changeSamples;
