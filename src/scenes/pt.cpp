@@ -65,18 +65,21 @@ void PathTracer::render(Scene const &scene, Camera const &cam, AppContext &ctx,
  * Geometry
  **********************************/
 
-Intersection Object::intersect(Ray const &r) const {
-  Ray local = invTr * r;
+Intersection Object::intersect(Ray const &worldRay) const {
+  // Ray localRay = invTr * worldRay; //!! about 1.6x slower, but allows for reflection
+  Ray localRay = worldRay.transform(invTr, invRot);
   Intersection isect;
   if (type == SPHERE)
-    isect = sphere.intersect(local, this);
+    isect = sphere.intersect(localRay, this);
   else if (type == DISC)
-    isect = disc.intersect(local, this);
+    isect = disc.intersect(localRay, this);
   else
-    isect = plane.intersect(local, this);
+    isect = plane.intersect(localRay, this);
   if (isect) {
-    isect.x = tr * isect.x;
-    isect.n = tr.linear() * isect.n;
+    isect.x        = tr * isect.x;
+    isect.distance = (isect.x - worldRay.origin).norm();
+    // isect.n = (tr.linear() * isect.n).normalized();
+    isect.n = rot * isect.n;
   }
   return isect;
 }
