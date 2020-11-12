@@ -38,7 +38,7 @@ int main(int argc, const char **argv) {
 
     ImGui::Begin("Stats");
     ImGui::Text("%.1f FPS", ImGui::GetIO().Framerate);
-    ImGui::Text("%d SPP", ctx.ptFrame);
+    ImGui::Text("%d SPP", ctx.spp);
     ImGui::Text("%.3f s per SPP", ctx.elapsed_seconds);
     ImGui::Text("%.2f %% error", ctx.renderError * 100.f);
     ImGui::End();

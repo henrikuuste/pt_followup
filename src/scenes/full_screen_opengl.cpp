@@ -59,7 +59,7 @@ void FullScreenOpenGLScene::update([[maybe_unused]] AppContext &ctx) {
       pt_.render(scene_, cam_, ctx, screenBuffer_);
       auto finish         = Time::now();
       ctx.elapsed_seconds = Fsec{finish - start}.count();
-      ctx.ptFrame++;
+      ctx.spp++;
       renderingPT = false;
     });
   }
@@ -144,5 +144,5 @@ void FullScreenOpenGLScene::initScene() {
 void FullScreenOpenGLScene::resetBuffer(AppContext &ctx) {
   runPTHandle.wait();
   std::fill(pt_.radianceBuffer.begin(), pt_.radianceBuffer.end(), Radiance::Zero());
-  ctx.ptFrame = 0;
+  ctx.spp = 0;
 }
