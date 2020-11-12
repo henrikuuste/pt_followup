@@ -54,7 +54,7 @@ void PathTracer::render(Scene const &scene, Camera const &cam, AppContext &ctx,
       Radiance change = rSample.cwiseQuotient(radianceBuffer[idx]);
       if (not change.hasNaN()) {
         avgChangeR += change[0];
-        avgChangeG += change[0];
+        avgChangeG += change[1];
         avgChangeB += change[2];
         changeSamples++;
       }
