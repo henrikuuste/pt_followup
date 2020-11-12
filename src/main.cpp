@@ -63,7 +63,6 @@ int main(int argc, const char **argv) {
 
     handleEvents(window);
     ctx.dtime = deltaClock.getElapsedTime().asSeconds();
-    ctx.frame++;
   }
 
   spdlog::info("Shutting down");

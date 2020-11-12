@@ -41,7 +41,6 @@ inline const char *mode_strings[] = {
 };
 
 struct AppContext {
-  size_t frame          = 0;
   size_t ptFrame        = 0;
   float dtime           = 0.f;
   float elapsed_seconds = 0.f;

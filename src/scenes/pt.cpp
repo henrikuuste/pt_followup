@@ -38,10 +38,13 @@ void PathTracer::render(Scene const &scene, Camera const &cam, AppContext &ctx,
   tctx.app     = &ctx;
   tctx.sampler = &smp;
 
-  Radiance avgChange   = Radiance::Zero();
+  // Radiance avgChange   = Radiance::Zero();
+  float avgChangeR     = 0;
+  float avgChangeG     = 0;
+  float avgChangeB     = 0;
   size_t changeSamples = 0;
 
-#pragma omp parallel for
+#pragma omp parallel for reduction(+ : avgChangeR) reduction(+ : avgChangeG) reduction(+ : avgChangeB) reduction(+ : changeSamples)
   for (int idx = 0; idx < (int)image.size(); ++idx) { // auto &pixel : image
     auto &pixel      = image.at(idx);
     Ray primary      = cam.castRay(pixel.xy, tctx);
@@ -50,15 +53,19 @@ void PathTracer::render(Scene const &scene, Camera const &cam, AppContext &ctx,
     if (not rSample.isZero()) {
       Radiance change = rSample.cwiseQuotient(radianceBuffer[idx]);
       if (not change.hasNaN()) {
-        avgChange += change;
+        avgChangeR += change[0];
+        avgChangeG += change[0];
+        avgChangeB += change[2];
         changeSamples++;
       }
     }
 
     pixel.color = toSRGB((radianceBuffer[idx] / (ctx.ptFrame + 1)), tctx);
   }
-  avgChange /= changeSamples;
-  ctx.renderError = avgChange.maxCoeff();
+  avgChangeR /= changeSamples;
+  avgChangeG /= changeSamples;
+  avgChangeB /= changeSamples;
+  ctx.renderError = std::max({avgChangeR, avgChangeG, avgChangeB});
 }
 
 /**********************************

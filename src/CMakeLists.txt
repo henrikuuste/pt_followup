@@ -10,6 +10,11 @@ add_executable(sfml_cuda
 # )
 # set_target_properties(sfml_cuda PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 
+find_package(OpenMP)
+if(OpenMP_CXX_FOUND)
+    target_link_libraries(sfml_cuda PUBLIC OpenMP::OpenMP_CXX)
+endif()
+
 target_include_directories(sfml_cuda SYSTEM PUBLIC ${CUDA_INCLUDE_DIRS})
 target_link_libraries(sfml_cuda PRIVATE project_options project_warnings ${CUDA_LIBRARIES})
 
