@@ -4,3 +4,4 @@ out
 build
 *.zip
 CMakeSettings.json
+imgui.ini

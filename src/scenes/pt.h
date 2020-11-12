@@ -1,16 +1,17 @@
 #pragma once
 
 #include "../common.h"
-#include "sampler.h"
 #include "pt_math.h"
+#include "sampler.h"
 #include <vector>
+
 
 struct TraceContext {
   AppContext *app;
   Sampler *sampler;
   float sample1D() { return sampler->get1D(); }
-  Vec2 sample2D() { return sampler->get2D();  }
-  Vec3 sample3D() { return sampler->get3D();  }
+  Vec2 sample2D() { return sampler->get2D(); }
+  Vec3 sample3D() { return sampler->get3D(); }
 };
 
 struct MaterialSample {
@@ -105,8 +106,8 @@ struct Object {
   }
 
   void setTransform(Affine const &t) {
-    tr    = t;
-    invTr = t.inverse();
+    tr     = t;
+    invTr  = t.inverse();
     rot    = tr.rotation();
     invRot = invTr.rotation();
   }
@@ -134,7 +135,9 @@ inline Color4 toSRGB(Radiance r, TraceContext &ctx) {
   return c;
 }
 
-inline bool shouldTerminate(Ray const &r, TraceContext &ctx) { return r.depth > ctx.app->max_depth; }
+inline bool shouldTerminate(Ray const &r, TraceContext &ctx) {
+  return r.depth > ctx.app->max_depth;
+}
 
 Radiance trace(Scene const &scene, Ray const &wo, TraceContext &ctx);
 

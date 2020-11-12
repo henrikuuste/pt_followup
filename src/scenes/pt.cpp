@@ -1,6 +1,7 @@
 #include "pt.h"
 #include "sampler_std.h"
 
+#include <omp.h>
 #include <random>
 
 /**********************************
@@ -29,34 +30,34 @@ Radiance trace(Scene const &scene, Ray const &wo, TraceContext &ctx) {
 
 void PathTracer::render(Scene const &scene, Camera const &cam, AppContext &ctx,
                         std::vector<Pixel> &image) {
-  size_t idx = 0;
 
   SamplerStd smp;
-  smp.init(ctx.frame + 1, idx);
+  smp.init(ctx.spp + 1, 0);
 
   TraceContext tctx;
   tctx.app     = &ctx;
   tctx.sampler = &smp;
 
-  Radiance avgChange   = Radiance::Zero();
+  float avgChange      = 0;
   size_t changeSamples = 0;
-  for (auto &pixel : image) {
+
+#pragma omp parallel for reduction(+ : avgChange) reduction(+ : changeSamples)
+  for (int idx = 0; idx < (int)image.size(); ++idx) { // auto &pixel : image
+    auto &pixel      = image.at(idx);
     Ray primary      = cam.castRay(pixel.xy, tctx);
     Radiance rSample = trace(scene, primary, tctx);
     radianceBuffer[idx] += rSample;
     if (not rSample.isZero()) {
       Radiance change = rSample.cwiseQuotient(radianceBuffer[idx]);
       if (not change.hasNaN()) {
-        avgChange += change;
+        avgChange += change.maxCoeff();
         changeSamples++;
       }
     }
-
-    pixel.color = toSRGB((radianceBuffer[idx] / (ctx.frame + 1)), tctx);
-    idx++;
+    pixel.color = toSRGB((radianceBuffer[idx] / (ctx.spp + 1)), tctx);
   }
   avgChange /= changeSamples;
-  ctx.renderError = avgChange.maxCoeff();
+  ctx.renderError = avgChange;
 }
 
 /**********************************

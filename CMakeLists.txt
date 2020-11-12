@@ -3,6 +3,8 @@ cmake_minimum_required(VERSION 3.12)
 project(sfml_cuda_project CXX)
 include(cmake/StandardProjectSettings.cmake)
 
+find_package(OpenMP)
+
 # find_package(CUDA REQUIRED)
 
 # include(CheckLanguage)

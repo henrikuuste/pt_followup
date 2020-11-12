@@ -2,7 +2,9 @@
 
 #include <spdlog/spdlog.h>
 
+#pragma warning(push, 0)
 #include <Eigen/Dense>
+#pragma warning(pop)
 
 #include <cstdint>
 #include <map>
@@ -33,7 +35,7 @@ struct Pixel {
 enum class DisplayMode : int { Color, Normal, Depth };
 
 struct AppContext {
-  size_t frame          = 0;
+  size_t spp            = 0;
   float dtime           = 0.f;
   float elapsed_seconds = 0.f;
   float renderError     = 0.f;
