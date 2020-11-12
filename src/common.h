@@ -30,13 +30,7 @@ struct Pixel {
   Color4 color;
 };
 
-enum DisplayMode { MODE_COLOR, MODE_NORMAL, MODE_DEPTH, MODE_COUNT };
-
-inline const char *mode_strings[] = {
-    "color",
-    "normal",
-    "depth",
-};
+enum class DisplayMode : int { Color, Normal, Depth };
 
 struct AppContext {
   size_t frame          = 0;
@@ -49,5 +43,5 @@ struct AppContext {
   int samples           = 2;
   float far_plane       = 20.f;
   std::map<std::string, bool> features;
-  DisplayMode mode = MODE_COLOR;
+  DisplayMode mode = DisplayMode::Color;
 };

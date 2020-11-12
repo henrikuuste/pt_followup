@@ -21,5 +21,6 @@ target_link_libraries_system(
   CONAN_PKG::imgui-sfml
   CONAN_PKG::glew
   CONAN_PKG::eigen
+  CONAN_PKG::magic_enum
 )
 

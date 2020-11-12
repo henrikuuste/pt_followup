@@ -12,9 +12,9 @@ Radiance trace(Scene const &scene, Ray const &wo, TraceContext &ctx) {
   if (not hit)
     return Radiance::Zero();
 
-  if (ctx.app->mode == MODE_NORMAL)
+  if (ctx.app->mode == DisplayMode::Normal)
     return hit.n;
-  if (ctx.app->mode == MODE_DEPTH) {
+  if (ctx.app->mode == DisplayMode::Depth) {
     Vec3 invDepthColor = Vec3::Ones() * hit.distance / ctx.app->far_plane;
     invDepthColor      = invDepthColor.array().min(1.f).max(0.f);
     return Vec3::Ones() - invDepthColor;
