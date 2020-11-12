@@ -72,12 +72,14 @@ enum ObjectType {
 };
 
 struct Object {
+  std::string name;
   Material mat;
   ObjectType type;
   Affine tr;
   Affine invTr;
   Quat rot;
   Quat invRot;
+  bool hasScale = false;
 
   union {
     Sphere sphere;
@@ -85,17 +87,19 @@ struct Object {
     Disc disc;
   };
 
-  Object(Sphere const &obj, Material const &m, Affine const &t)
-      : mat(m), type(SPHERE), sphere(obj) {
+  Object(std::string_view n, Sphere const &obj, Material const &m, Affine const &t)
+      : name(n), mat(m), type(SPHERE), sphere(obj) {
     setTransform(t);
   }
-  Object(Plane const &obj, Material const &m, Affine const &t) : mat(m), type(PLANE), plane(obj) {
+  Object(std::string_view n, Plane const &obj, Material const &m, Affine const &t)
+      : name(n), mat(m), type(PLANE), plane(obj) {
     setTransform(t);
   }
-  Object(Disc const &obj, Material const &m, Affine const &t) : mat(m), type(DISC), disc(obj) {
+  Object(std::string_view n, Disc const &obj, Material const &m, Affine const &t)
+      : name(n), mat(m), type(DISC), disc(obj) {
     setTransform(t);
   }
-  Object(Object const &o) : mat(o.mat), type(o.type) {
+  Object(Object const &o) : name(o.name), mat(o.mat), type(o.type) {
     setTransform(o.tr);
     if (type == SPHERE)
       sphere = o.sphere;
@@ -110,6 +114,10 @@ struct Object {
     invTr  = t.inverse();
     rot    = tr.rotation();
     invRot = invTr.rotation();
+    if (not tr.rotation().isApprox(tr.linear())) {
+      spdlog::info("{} has scale", name);
+      hasScale = true;
+    }
   }
 
   Intersection intersect(Ray const &r) const;
