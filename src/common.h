@@ -41,8 +41,8 @@ struct AppContext {
   float renderError     = 0.f;
   float exposure        = 1.f;
   float gamma           = 2.4f;
-  int max_depth         = 2;
-  int samples           = 2;
+  int max_depth         = 4;
+  int samples           = 3;
   float far_plane       = 20.f;
   std::map<std::string, bool> features;
   DisplayMode mode = DisplayMode::Color;

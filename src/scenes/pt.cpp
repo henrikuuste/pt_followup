@@ -22,7 +22,8 @@ Radiance trace(Scene const &scene, Ray const &wo, TraceContext &ctx) {
   }
   if (shouldTerminate(wo, ctx))
     return hit.object->mat.Le(hit, wo);
-  auto ms     = hit.object->mat.sample(hit, wo, ctx);
+  auto ms = hit.object->mat.sample(hit, wo, ctx);
+
   Radiance Li = trace(scene, ms.wi, ctx);
 
   return hit.object->mat.Le(hit, wo) + ms.fr.cwiseProduct(Li) * ms.wi.dir.dot(hit.n) / ms.pdf;
@@ -139,11 +140,21 @@ Intersection Disc::intersect(Ray const &r, Object const *obj) const {
 
 MaterialSample Material::sample(Intersection const &i, Ray const &wo, TraceContext &ctx) const {
   MaterialSample ms;
-  ms.fr  = diffuse;
-  Vec3 d = (ctx.sample3D() * 2.f - Vec3::Ones()).normalized();
-  if (d.dot(i.n) < 0)
-    d = -d;
-  ms.wi  = {i.x + i.n * EPSILON, d, wo.depth + 1};
+  ms.fr = diffuse;
+
+  if (type == DIFF) {
+    Vec3 d = (ctx.sample3D() * 2.f - Vec3::Ones()).normalized();
+    if (d.dot(i.n) < 0) {
+      d = -d;
+    }
+    ms.wi = {i.x + i.n * EPSILON, d, wo.depth + 1};
+
+  } else if (type == SPEC) {
+    ms.wi = {i.x, wo.dir - i.n * 2 * i.n.dot(wo.dir), wo.depth + 1};
+  } else {
+    spdlog::error("Not implemented");
+    abort();
+  }
   ms.pdf = 1.f;
   return ms;
 }
