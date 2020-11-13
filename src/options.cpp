@@ -20,8 +20,8 @@ Options::Options(std::vector<std::string> const &argv) {
   if (args["--verbose"].asBool())
     spdlog::set_level(spdlog::level::debug);
 
-  width  = args["--width"].asLong();
-  height = args["--height"].asLong();
+  width  = static_cast<unsigned int>(args["--width"].asLong());
+  height = static_cast<unsigned int>(args["--height"].asLong());
 }
 
 void Options::checkOptions() {

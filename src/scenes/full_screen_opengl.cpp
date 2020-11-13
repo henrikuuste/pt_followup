@@ -18,7 +18,7 @@ FullScreenOpenGLScene::FullScreenOpenGLScene(sf::RenderWindow const &window) {
   glBindBuffer(GL_ARRAY_BUFFER, glVBO_);
 
   // initialize VBO
-  width  = window.getSize().x * 0.6;
+  width  = static_cast<unsigned int>(static_cast<float>(window.getSize().x) * 0.6f);
   height = window.getSize().y;
   glBufferData(GL_ARRAY_BUFFER, width * height * sizeof(Pixel), 0, GL_DYNAMIC_DRAW);
   glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -30,8 +30,9 @@ FullScreenOpenGLScene::FullScreenOpenGLScene(sf::RenderWindow const &window) {
   for (unsigned int row = 0; row < height; ++row) {
     for (unsigned int col = 0; col < width; ++col) {
       auto idx = row * width + col;
-      screenBuffer_[idx].xy << col, row;
-      screenBuffer_[idx].color << col * 255 / width, row * 255 / height, 0, 255;
+      screenBuffer_[idx].xy << static_cast<float>(col), static_cast<float>(row);
+      screenBuffer_[idx].color << static_cast<uint8_t>(col * 255 / width),
+          static_cast<uint8_t>(row * 255 / height), 0, 255;
     }
   }
 
@@ -82,50 +83,48 @@ void FullScreenOpenGLScene::render(sf::RenderWindow &window) {
   glDisableClientState(GL_TEXTURE_COORD_ARRAY);
   glBindBuffer(GL_ARRAY_BUFFER, glVBO_);
   glVertexPointer(2, GL_FLOAT, 12, 0);
-  glColorPointer(4, GL_UNSIGNED_BYTE, 12, (GLvoid *)8);
+  glColorPointer(4, GL_UNSIGNED_BYTE, 12, reinterpret_cast<GLvoid *>(8));
 
-  glDrawArrays(GL_POINTS, 0, width * height);
+  glDrawArrays(GL_POINTS, 0, static_cast<int>(width * height));
   glBindBuffer(GL_ARRAY_BUFFER, 0);
 
   window.popGLStates();
 }
 
 void FullScreenOpenGLScene::initScene() {
-  cam_.w = width;
-  cam_.h = height;
-  cam_.tr.translation() << 0, 0, 14;
+  cam_.w = static_cast<float>(width);
+  cam_.h = static_cast<float>(height);
+  cam_.tr.translation() << 0.f, 0.f, 14.f;
   cam_.tr.rotate(AngAx(R_PI, Vec3::UnitY()));
   cam_.tr.rotate(AngAx(R_PI * .05f, -Vec3::UnitZ()));
-  cam_.fov = R_PI * 0.4;
+  cam_.fov = R_PI * 0.4f;
 
-  Material whiteLight{{0, 0, 0}, {1, 1, 1}};
-  Material yellowLight{{0, 0, 0}, {2, 1.5, 1}};
+  Material whiteLight{Vec3::Zero(), {1.f, 1.f, 1.f}};
+  Material yellowLight{Vec3::Zero(), {2.f, 1.5f, 1.f}};
 
-  Material white{{1, 1, 1}};
-  Material red{{1, .2, .2}};
-  Material blue{{.5, .5, 1}};
-  Material green{{.2, 1., .2}};
+  Material white{{1.f, 1.f, 1.f}};
+  // Material red{{1.f, .2f, .2f}};
+  Material blue{{.5f, .5f, 1.f}};
+  Material green{{.2f, 1.f, .2f}};
 
-  Material greenRefl{{.2, 1., .2}, {0, 0, 0}, Material::SPEC};
-  Material redRefl{{1, .2, .2}, {0, 0, 0}, Material::SPEC};
-  Material whiteRefl{{1, 1, 1}, {0, 0, 0}, Material::SPEC};
+  Material greenRefl{{.2f, 1.f, .2f}, Vec3::Zero(), Material::SPEC};
+  Material redRefl{{1.f, .2f, .2f}, Vec3::Zero(), Material::SPEC};
+  // Material whiteRefl{{1.f, 1.f, 1.f}, Vec3::Zero(), Material::SPEC};
 
-  const float wallR = 1e4f;
   const float roomR = 4.f;
-  const float wallD = wallR + roomR;
 
   scene_.objects.reserve(16);
 
   Affine tr = Affine::Identity();
 
-  tr.translation() << 0, -roomR + 1.f, -0.5;
+  tr.translation() << 0.f, -roomR + 1.f, -0.5f;
   tr.scale(1.f);
   scene_.objects.push_back({"light sphere", Sphere{1.f}, whiteLight, tr});
   tr.setIdentity();
-  tr.translation() << 2, -roomR + 2.f, -2;
+  tr.translation() << 2.f, -roomR + 2.f, -2.f;
   scene_.objects.push_back({"green reflective sphere", Sphere{2.f}, greenRefl, tr});
   tr.setIdentity();
-  tr.translation() << -2, -roomR + 2.f, -2;
+  tr.translation() << -2.f, -roomR + 2.f, -2.f;
   scene_.objects.push_back({"white sphere", Sphere{2.f}, white, tr});
 
   tr.translation() << -Vec3::UnitY() * roomR;
@@ -156,7 +155,6 @@ void FullScreenOpenGLScene::initScene() {
 }
 
 void FullScreenOpenGLScene::resetBuffer(AppContext &ctx) {
-  runPTHandle.wait();
-  std::fill(pt_.radianceBuffer.begin(), pt_.radianceBuffer.end(), Radiance::Zero());
+  pt_.reset(cam_);
   ctx.spp = 0;
 }

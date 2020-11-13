@@ -28,8 +28,6 @@ int main(int argc, const char **argv) {
 
   FullScreenOpenGLScene scene(window);
 
-  constexpr auto &modeNames = magic_enum::enum_names<DisplayMode>();
-
   AppContext ctx;
   sf::Clock deltaClock;
   while (window.isOpen()) {
@@ -38,10 +36,10 @@ int main(int argc, const char **argv) {
     scene.update(ctx);
 
     ImGui::Begin("Stats");
-    ImGui::Text("%.1f FPS", ImGui::GetIO().Framerate);
-    ImGui::Text("%d SPP", ctx.spp);
-    ImGui::Text("%.3f s per SPP", ctx.elapsed_seconds);
-    ImGui::Text("%.2f %% error", ctx.renderError * 100.f);
+    ImGui::Text("%.1f FPS", static_cast<double>(ImGui::GetIO().Framerate));
+    ImGui::Text("%d SPP", static_cast<int>(ctx.spp));
+    ImGui::Text("%.3f s per SPP", static_cast<double>(ctx.elapsed_seconds));
+    ImGui::Text("%.2f %% error", static_cast<double>(ctx.renderError * 100.f));
     ImGui::End();
 
     ImGui::Begin("Control");

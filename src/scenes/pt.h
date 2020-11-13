@@ -3,6 +3,7 @@
 #include "../common.h"
 #include "pt_math.h"
 #include "sampler.h"
+#include <mutex>
 #include <vector>
 
 struct TraceContext {
@@ -46,7 +47,9 @@ struct Material {
   Radiance emittance = Radiance::Zero();
   MaterialType type  = DIFF;
 
-  Radiance Le(Intersection const &i, Ray const &wo) const { return emittance; }
+  Radiance Le([[maybe_unused]] Intersection const &i, [[maybe_unused]] Ray const &wo) const {
+    return emittance;
+  }
   MaterialSample sample(Intersection const &i, Ray const &wo, TraceContext &ctx) const;
 };
 
@@ -152,7 +155,12 @@ Radiance trace(Scene const &scene, Ray const &wo, TraceContext &ctx);
 
 struct PathTracer {
   std::vector<Radiance> radianceBuffer;
+  std::mutex dataMutex;
 
-  void reset(Camera const &cam) { radianceBuffer.resize(cam.w * cam.h, Radiance::Zero()); }
+  void reset(Camera const &cam) {
+    std::unique_lock lk(dataMutex);
+    radianceBuffer.clear();
+    radianceBuffer.resize(static_cast<size_t>(cam.w * cam.h), Radiance::Zero());
+  }
   void render(Scene const &scene, Camera const &cam, AppContext &ctx, std::vector<Pixel> &image);
 };

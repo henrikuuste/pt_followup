@@ -31,9 +31,9 @@ Radiance trace(Scene const &scene, Ray const &wo, TraceContext &ctx) {
 
 void PathTracer::render(Scene const &scene, Camera const &cam, AppContext &ctx,
                         std::vector<Pixel> &image) {
-
+  std::unique_lock lk(dataMutex);
   SamplerStd smp;
-  smp.init(ctx.spp + 1, 0);
+  smp.init(static_cast<uint32_t>(ctx.spp + 1), 0);
 
   TraceContext tctx;
   tctx.app     = &ctx;
@@ -43,21 +43,22 @@ void PathTracer::render(Scene const &scene, Camera const &cam, AppContext &ctx,
   size_t changeSamples = 0;
 
 #pragma omp parallel for reduction(+ : avgChange) reduction(+ : changeSamples)
-  for (int idx = 0; idx < (int)image.size(); ++idx) { // auto &pixel : image
-    auto &pixel      = image.at(idx);
+  for (int idx = 0; idx < static_cast<int>(image.size()); ++idx) { // auto &pixel : image
+    size_t uidx      = static_cast<size_t>(idx);
+    auto &pixel      = image[uidx];
     Ray primary      = cam.castRay(pixel.xy, tctx);
     Radiance rSample = trace(scene, primary, tctx);
-    radianceBuffer[idx] += rSample;
+    radianceBuffer[uidx] += rSample;
     if (not rSample.isZero()) {
-      Radiance change = rSample.cwiseQuotient(radianceBuffer[idx]);
+      Radiance change = rSample.cwiseQuotient(radianceBuffer[uidx]);
       if (not change.hasNaN()) {
         avgChange += change.maxCoeff();
         changeSamples++;
       }
     }
-    pixel.color = toSRGB((radianceBuffer[idx] / (ctx.spp + 1)), tctx);
+    pixel.color = toSRGB((radianceBuffer[uidx] / (ctx.spp + 1)), tctx);
   }
-  avgChange /= changeSamples;
+  avgChange /= static_cast<float>(changeSamples);
   ctx.renderError = avgChange;
 }
 
@@ -173,6 +174,6 @@ Ray Camera::castRay(Vec2 const &coord, TraceContext &ctx) const {
   Vec3 v   = Vec3::UnitY() * fov * h / w;
   Vec2 rnd = ctx.sample2D();
   Vec3 d =
-      u * ((coord.x() + rnd.x()) / w - .5) + v * ((coord.y() + rnd.y()) / h - .5) + Vec3::UnitZ();
+      u * ((coord.x() + rnd.x()) / w - .5f) + v * ((coord.y() + rnd.y()) / h - .5f) + Vec3::UnitZ();
   return {tr.translation(), tr.linear() * d.normalized()};
 }

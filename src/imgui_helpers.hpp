@@ -1,12 +1,12 @@
 #pragma once
 
+#include <array>
 #include <imgui-SFML.h>
 #include <imgui.h>
 #include <magic_enum.hpp>
+#include <string_view>
 #include <type_traits>
 #include <vector>
-#include <array>
-#include <string_view>
 
 template <class EnumT> requires std::is_enum_v<EnumT> auto enum_as_pointer(EnumT &e) {
   return reinterpret_cast<typename std::underlying_type<EnumT>::type *>(&e);
@@ -18,7 +18,7 @@ static auto vector_getter = [](void *vec, int idx, const char **out_text) {
   if (idx < 0 || idx >= static_cast<int>(vector.size())) {
     return false;
   }
-  *out_text = vector.at(idx).c_str();
+  *out_text = vector.at(static_cast<size_t>(idx)).c_str();
   return true;
 };
 
@@ -26,7 +26,8 @@ bool Combo(std::string_view label, int *currIndex, std::vector<std::string> &val
   if (values.empty()) {
     return false;
   }
-  return Combo(label.data(), currIndex, vector_getter, static_cast<void *>(&values), values.size());
+  return Combo(label.data(), currIndex, vector_getter, static_cast<void *>(&values),
+               static_cast<int>(values.size()));
 }
 
 template <typename ArrType>
@@ -35,7 +36,7 @@ static auto view_array_getter = [](void *vec, int idx, const char **out_text) {
   if (idx < 0 || idx >= static_cast<int>(arr.size())) {
     return false;
   }
-  *out_text = arr.at(idx).data();
+  *out_text = arr.at(static_cast<size_t>(idx)).data();
   return true;
 };
 
