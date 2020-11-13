@@ -1,9 +1,9 @@
 #include "common.h"
 
+#include "imgui_helpers.hpp"
 #include <SFML/Graphics/RenderWindow.hpp>
 #include <SFML/System/Clock.hpp>
 #include <SFML/Window/Event.hpp>
-#include "imgui_helpers.hpp"
 
 // #include "cuda_wrapper.h"
 #include "options.h"

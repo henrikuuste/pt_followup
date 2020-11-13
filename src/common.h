@@ -2,9 +2,13 @@
 
 #include <spdlog/spdlog.h>
 
+#ifdef _MSC_VER
 #pragma warning(push, 0)
+#endif
 #include <Eigen/Dense>
+#ifdef _MSC_VER
 #pragma warning(pop)
+#endif
 
 #include <cstdint>
 #include <map>
@@ -42,7 +46,6 @@ struct AppContext {
   float exposure        = 1.f;
   float gamma           = 2.4f;
   int max_depth         = 4;
-  int samples           = 3;
   float far_plane       = 20.f;
   std::map<std::string, bool> features;
   DisplayMode mode = DisplayMode::Color;

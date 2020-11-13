@@ -1,10 +1,14 @@
 #pragma once
 
+#ifdef _MSC_VER
 #pragma warning(push, 0)
+#endif
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include <cuda_runtime_api.h>
+#ifdef _MSC_VER
 #pragma warning(pop)
+#endif
 
 namespace cuda {
 

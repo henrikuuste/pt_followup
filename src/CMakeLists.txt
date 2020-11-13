@@ -1,12 +1,17 @@
 add_executable(sfml_cuda
     main.cpp
     options.cpp
+    options.h
+    common.h
     scenes/full_screen_opengl.cpp
-    # scenes/full_screen_opengl.cu
+    scenes/full_screen_opengl.h
     scenes/pt.cpp
-  "scenes/sampler_std.h" "scenes/sampler.h" "scenes/pt_math.h")
+    scenes/pt.h
+    scenes/sampler_std.h
+    scenes/sampler.h
+    scenes/pt_math.h)
 # target_compile_options(sfml_cuda PRIVATE                        
-#     $<$<COMPILE_LANGUAGE:CUDA>:${ARCH_FLAGS} --expt-relaxed-constexpr>
+#     $<$<COMPILE_LANGUAGE:CUDA>:--std=c++17 -lineinfo --expt-relaxed-constexpr>
 # )
 # set_target_properties(sfml_cuda PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 
