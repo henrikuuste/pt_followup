@@ -5,7 +5,6 @@
 #include "sampler.h"
 #include <vector>
 
-
 struct TraceContext {
   AppContext *app;
   Sampler *sampler;
@@ -42,8 +41,10 @@ struct Camera {
 };
 
 struct Material {
+  enum MaterialType { DIFF, SPEC };
   Radiance diffuse;
   Radiance emittance = Radiance::Zero();
+  MaterialType type  = DIFF;
 
   Radiance Le(Intersection const &i, Ray const &wo) const { return emittance; }
   MaterialSample sample(Intersection const &i, Ray const &wo, TraceContext &ctx) const;

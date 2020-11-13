@@ -106,6 +106,10 @@ void FullScreenOpenGLScene::initScene() {
   Material blue{{.5, .5, 1}};
   Material green{{.2, 1., .2}};
 
+  Material greenRefl{{.2, 1., .2}, {0, 0, 0}, Material::SPEC};
+  Material redRefl{{1, .2, .2}, {0, 0, 0}, Material::SPEC};
+  Material whiteRefl{{1, 1, 1}, {0, 0, 0}, Material::SPEC};
+
   const float wallR = 1e4f;
   const float roomR = 4.f;
   const float wallD = wallR + roomR;
@@ -113,12 +117,16 @@ void FullScreenOpenGLScene::initScene() {
   scene_.objects.reserve(16);
 
   Affine tr = Affine::Identity();
-  tr.translation() << -1, -roomR + 1.f, -1;
-  tr.scale(1.5f);
+
+  tr.translation() << 0, -roomR + 1.f, -0.5;
+  tr.scale(1.f);
   scene_.objects.push_back({"light sphere", Sphere{1.f}, whiteLight, tr});
   tr.setIdentity();
   tr.translation() << 2, -roomR + 2.f, -2;
-  scene_.objects.push_back({"large sphere", Sphere{2.f}, white, tr});
+  scene_.objects.push_back({"green reflective sphere", Sphere{2.f}, greenRefl, tr});
+  tr.setIdentity();
+  tr.translation() << -2, -roomR + 2.f, -2;
+  scene_.objects.push_back({"white sphere", Sphere{2.f}, white, tr});
 
   tr.translation() << -Vec3::UnitY() * roomR;
   scene_.objects.push_back({"floor", Plane{Vec3::UnitY()}, white, tr});
@@ -127,7 +135,7 @@ void FullScreenOpenGLScene::initScene() {
 
   tr.rotate(AngAx(R_PI * .1f, Vec3::UnitZ()));
   tr.translation() << Vec3::UnitX() * roomR;
-  scene_.objects.push_back({"left wall", Plane{-Vec3::UnitX()}, red, tr});
+  scene_.objects.push_back({"left wall", Plane{-Vec3::UnitX()}, redRefl, tr});
   tr.setIdentity();
   tr.rotate(AngAx(-R_PI * .1f, Vec3::UnitZ()));
   tr.translation() << -Vec3::UnitX() * roomR;
@@ -137,8 +145,11 @@ void FullScreenOpenGLScene::initScene() {
   tr.translation() << -Vec3::UnitZ() * roomR;
   scene_.objects.push_back({"back wall", Plane{Vec3::UnitZ()}, blue, tr});
 
+  tr.translation() << Vec3::UnitZ() * roomR * 4;
+  scene_.objects.push_back({"Z+ wall", Plane{-Vec3::UnitZ()}, blue, tr});
+
   tr.translation() << 0, roomR * 0.99f, 2.f;
-  tr.scale(Vec3{1.f, 1.f, roomR*0.8f});
+  tr.scale(Vec3{1.f, 1.f, roomR * 0.8f});
   scene_.objects.push_back({"ceiling light", Disc{-Vec3::UnitY(), 2.f}, yellowLight, tr});
 
   pt_.reset(cam_);
