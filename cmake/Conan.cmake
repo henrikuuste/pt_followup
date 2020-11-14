@@ -20,7 +20,7 @@ conan_cmake_run(
   docopt.cpp/0.6.2
   fmt/6.2.0
   spdlog/1.5.0
-  # magic_enum/0.6.6
+  magic_enum/0.6.6
   imgui-sfml/2.1@bincrafters/stable
   glew/2.1.0@bincrafters/stable
   eigen/3.3.7

@@ -7,6 +7,9 @@
 
 #include <SFML/Graphics/RenderWindow.hpp>
 
+#include <functional>
+#include <future>
+
 class FullScreenOpenGLScene {
 public:
   FullScreenOpenGLScene(sf::RenderWindow const &window);
@@ -14,10 +17,12 @@ public:
 
   void update(AppContext &ctx);
   void render(sf::RenderWindow &window);
+  void resetBuffer(AppContext &ctx);
+  void moveCamera(Affine const &tf, AppContext &ctx);
 
 private:
   void initScene();
-
+  std::future<void> runPTHandle;
   unsigned int width, height;
 
   std::vector<Pixel> screenBuffer_;
@@ -27,4 +32,5 @@ private:
   PathTracer pt_;
   Scene scene_;
   Camera cam_;
+  std::atomic_bool renderingPT = false;
 };

@@ -27,17 +27,27 @@ end
 @enduml
 
 @startuml
+
 PathTracer -- Scene
 PathTracer -- Camera
 Scene *-- Object
 Object *-- Material
-PathTracer -- AppContext
-Material -- Sampler
+PathTracer .. AppContext
+TraceContext *-- AppContext
+TraceContext *-- Sampler
+Material .. TraceContext
+Camera .. TraceContext
 Material -- MaterialSample
+Material *-- MaterialType
 Camera .. Ray
 Material .. Ray
 Scene .. Intersection
 Object .. Intersection
+Object *-- Primitive
+Primitive *-- Sphere
+Primitive *-- Disc
+Primitive *-- Plane
+Object *-- ObjectType
 
 class Pixel {
   Vec2 xy;
@@ -49,16 +59,75 @@ class Radiance {
 }
 
 class AppContext {
-  int frame;
-  float renderProgress;
-  float exposure;
-  int max_depth;
+  size_t spp            = 0;
+  float dtime           = 0.f;
+  float elapsed_seconds = 0.f;
+  float renderError     = 0.f;
+  float exposure        = 1.f;
+  float gamma           = 2.4f;
+  int max_depth         = 4;
+  float far_plane       = 20.f;
   std::map<std::string, bool> features;
+  DisplayMode mode = DisplayMode::Color;
+}
+
+class TraceContext {
+  AppContext *app;
+  Sampler *sampler;
+  float sample1D();
+  Vec2 sample2D();
+  Vec3 sample3D();
 }
 
 class Scene {
   std::vector<Object> objects
   Intersection intersect(Ray const &r) const;
+}
+
+class Sphere {
+  float radius;
+}
+
+class Plane {
+  Vec3 normal;
+}
+
+class Disc {
+  Vec3 normal;
+  float radius;
+}
+
+interface Primitive {
+  Intersection intersect(Ray const &r, Object const *obj) const;
+}
+
+enum ObjectType {
+  SPHERE,
+  PLANE,
+  DISC,
+}
+
+class Object {
+  std::string name;
+  Material mat;
+  ObjectType type;
+  Affine tr;
+  Intersection intersect(Ray const &r) const;
+  void setTransform(Affine const &t);
+}
+
+enum MaterialType {
+  DIFF,
+  SPEC,
+}
+
+class Material {
+  Radiance diffuse;
+  Radiance emittance;
+  MaterialType type;
+
+  Radiance Le(Intersection const &i, Ray const &wo) const;
+  MaterialSample sample(Intersection const &i, Ray const &wo, TraceContext &ctx) const;
 }
 
 class Intersection {
@@ -68,42 +137,18 @@ class Intersection {
   Vec3 n;
   ' Vec3 dudp, dvdp; Tangents
   ' Vec2 uv; Texture lookup coordinates
+  operator bool() const;
   bool valid() const;
   bool operator<(Intersection const &other) const;
 }
 
 class Camera {
-  Vec3 pos;
-  Vec3 dir;
+  Affine tr;
   float w, h;
   float fov;
-  Ray castRay(Vec2 const &coord) const;
+  Ray castRay(Vec2 const &coord, TraceContext &ctx) const;
 }
 
-enum ObjectType {
-  SPHERE,
-  PLANE,
-}
-
-class Object {
-  ObjectType type;
-  Vec3 pos;
-  float radius;
-  Material mat;
-  Intersection intersect(Ray const &r) const;
-}
-
-
-class Material {
-  Radiance Le(Intersection const &i, Ray const &wo) const;
-  MaterialSample sample(Intersection const &i, Ray const &wo) const;
-}
-
-class Sampler {
-  float sample1D();
-  Vec2 sample2D();
-  Vec3 sample3D();
-}
 
 class MaterialSample {
   Radiance fr;
@@ -119,8 +164,24 @@ class Ray {
 }
 
 class PathTracer {
+  std::vector<Radiance> radianceBuffer;
+  std::mutex dataMutex;
+
   std::vector<Pixel> render(Scene const &scene, Camera const &cam, AppContext &ctx);
-  Radiance trace(Ray const &ray) const;
+  Radiance trace(Scene const &scene, Ray const &wo, TraceContext &ctx);
+  void reset(Camera const &cam);
+}
+
+interface Sampler {
+  void init(uint32_t seed, uint32_t offset);
+  float get1D();
+  Vec2 get2D();
+  Vec3 get3D();
+}
+
+class SamplerStd implements Sampler {
+  std::mt19937 gen;
+  std::uniform_real_distribution<float> dis;
 }
 
 ' class Path {

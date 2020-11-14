@@ -2,7 +2,13 @@
 
 #include <spdlog/spdlog.h>
 
+#ifdef _MSC_VER
+#pragma warning(push, 0)
+#endif
 #include <Eigen/Dense>
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 
 #include <cstdint>
 #include <map>
@@ -10,7 +16,13 @@
 
 using Vec3     = Eigen::Vector3f;
 using Vec2     = Eigen::Vector2f;
+using Vec4     = Eigen::Matrix<float, 4, 1>;
 using Radiance = Vec3;
+using Affine   = Eigen::Affine3f;
+using AngAx    = Eigen::AngleAxisf;
+using Quat     = Eigen::Quaternionf;
+using Mat4     = Eigen::Matrix<float, 4, 4>;
+using Mat3     = Eigen::Matrix<float, 3, 3>;
 
 #define R_PI float(EIGEN_PI)
 #define R_INVPI float(1.f / R_PI)
@@ -24,24 +36,17 @@ struct Pixel {
   Color4 color;
 };
 
-enum DisplayMode { MODE_COLOR, MODE_NORMAL, MODE_DEPTH, MODE_COUNT };
-
-inline const char *mode_strings[] = {
-    "color",
-    "normal",
-    "depth",
-};
+enum class DisplayMode : int { Color, Normal, Depth };
 
 struct AppContext {
-  size_t frame          = 0;
+  size_t spp            = 0;
   float dtime           = 0.f;
   float elapsed_seconds = 0.f;
-  float renderProgress  = 0.f;
+  float renderError     = 0.f;
   float exposure        = 1.f;
   float gamma           = 2.4f;
-  int max_depth         = 6;
-  int samples           = 4;
-  float far_plane       = 10.f;
+  int max_depth         = 4;
+  float far_plane       = 20.f;
   std::map<std::string, bool> features;
-  DisplayMode mode = MODE_COLOR;
+  DisplayMode mode = DisplayMode::Color;
 };

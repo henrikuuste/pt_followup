@@ -1,6 +1,10 @@
 #include "full_screen_opengl.h"
 
+#include <chrono>
 // #include <cuda_gl_interop.h>
+
+using Time = std::chrono::steady_clock;
+using Fsec = std::chrono::duration<float>;
 
 FullScreenOpenGLScene::FullScreenOpenGLScene(sf::RenderWindow const &window) {
   glewInit();
@@ -14,7 +18,7 @@ FullScreenOpenGLScene::FullScreenOpenGLScene(sf::RenderWindow const &window) {
   glBindBuffer(GL_ARRAY_BUFFER, glVBO_);
 
   // initialize VBO
-  width  = window.getSize().x;
+  width  = static_cast<unsigned int>(static_cast<float>(window.getSize().x) * 0.6f);
   height = window.getSize().y;
   glBufferData(GL_ARRAY_BUFFER, width * height * sizeof(Pixel), 0, GL_DYNAMIC_DRAW);
   glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -26,15 +30,19 @@ FullScreenOpenGLScene::FullScreenOpenGLScene(sf::RenderWindow const &window) {
   for (unsigned int row = 0; row < height; ++row) {
     for (unsigned int col = 0; col < width; ++col) {
       auto idx = row * width + col;
-      screenBuffer_[idx].xy << col, row;
-      screenBuffer_[idx].color << col * 255 / width, row * 255 / height, 0, 255;
+      screenBuffer_[idx].xy << static_cast<float>(col), static_cast<float>(row);
+      screenBuffer_[idx].color << static_cast<uint8_t>(col * 255 / width),
+          static_cast<uint8_t>(row * 255 / height), 0, 255;
     }
   }
 
   initScene();
 }
 
-FullScreenOpenGLScene::~FullScreenOpenGLScene() { glDeleteBuffers(1, &glVBO_); }
+FullScreenOpenGLScene::~FullScreenOpenGLScene() {
+  runPTHandle.wait();
+  glDeleteBuffers(1, &glVBO_);
+}
 
 void FullScreenOpenGLScene::update([[maybe_unused]] AppContext &ctx) {
   // CUDA_CALL(cudaGraphicsMapResources(1, &cudaVBO_, 0));
@@ -42,17 +50,26 @@ void FullScreenOpenGLScene::update([[maybe_unused]] AppContext &ctx) {
   // CUDA_CALL(cudaGraphicsResourceGetMappedPointer((void **)&vboPtr_, &num_bytes, cudaVBO_));
   // renderCuda();
   // CUDA_CALL(cudaGraphicsUnmapResources(1, &cudaVBO_, 0));
-  pt_.render(scene_, cam_, ctx, screenBuffer_);
-
-  glBindBuffer(GL_ARRAY_BUFFER, glVBO_);
-  glBufferData(GL_ARRAY_BUFFER, screenBuffer_.size() * sizeof(Pixel), screenBuffer_.data(),
-               GL_DYNAMIC_DRAW);
+  if (not renderingPT.load()) {
+    glBindBuffer(GL_ARRAY_BUFFER, glVBO_);
+    glBufferData(GL_ARRAY_BUFFER, screenBuffer_.size() * sizeof(Pixel), screenBuffer_.data(),
+                 GL_DYNAMIC_DRAW);
+    renderingPT = true;
+    runPTHandle = std::async(std::launch::async, [&]() {
+      auto start = Time::now();
+      pt_.render(scene_, cam_, ctx, screenBuffer_);
+      auto finish         = Time::now();
+      ctx.elapsed_seconds = Fsec{finish - start}.count();
+      ctx.spp++;
+      renderingPT = false;
+    });
+  }
 }
 
 void FullScreenOpenGLScene::render(sf::RenderWindow &window) {
   window.pushGLStates();
 
-  glClearColor(0.2f, 0.0f, 0.0f, 0.0f);
+  glClearColor(0.1f, 0.1f, 0.1f, 0.0f);
   glMatrixMode(GL_PROJECTION);
   glLoadIdentity();
   glOrtho(0.0, static_cast<GLdouble>(window.getSize().x), 0.0,
@@ -66,42 +83,83 @@ void FullScreenOpenGLScene::render(sf::RenderWindow &window) {
   glDisableClientState(GL_TEXTURE_COORD_ARRAY);
   glBindBuffer(GL_ARRAY_BUFFER, glVBO_);
   glVertexPointer(2, GL_FLOAT, 12, 0);
-  glColorPointer(4, GL_UNSIGNED_BYTE, 12, (GLvoid *)8);
+  glColorPointer(4, GL_UNSIGNED_BYTE, 12, reinterpret_cast<GLvoid *>(8));
 
-  glDrawArrays(GL_POINTS, 0, width * height);
+  glDrawArrays(GL_POINTS, 0, static_cast<int>(width * height));
   glBindBuffer(GL_ARRAY_BUFFER, 0);
 
   window.popGLStates();
 }
 
 void FullScreenOpenGLScene::initScene() {
-  cam_.w   = width;
-  cam_.h   = height;
+  cam_.w = static_cast<float>(width);
+  cam_.h = static_cast<float>(height);
+  cam_.tr.translation() << 0.f, 0.f, 14.f;
+  cam_.tr.rotate(AngAx(R_PI, Vec3::UnitY()));
+  // cam_.tr.rotate(AngAx(R_PI * .05f, -Vec3::UnitZ()));
   cam_.fov = R_PI * 0.4f;
-  cam_.pos << 0, 0, 11;
-  cam_.dir = -Vec3::UnitZ();
 
-  Material whiteLight{{0, 0, 0}, {1, 1, 1}};
+  Material whiteLight{Vec3::Zero(), {1.f, 1.f, 1.f}};
+  Material yellowLight{Vec3::Zero(), {2.f, 1.5f, 1.f}};
 
-  Material white{{1, 1, 1}};
-  Material red{{1, .2, .2}};
-  Material blue{{.5, .5, 1}};
-  Material green{{.2, 1., .2}};
+  Material white{{1.f, 1.f, 1.f}};
+  // Material red{{1.f, .2f, .2f}};
+  Material blue{{.5f, .5f, 1.f}};
+  Material green{{.2f, 1.f, .2f}};
 
-  const float wallR = 1e4f;
+  Material greenRefl{{.2f, 1.f, .2f}, Vec3::Zero(), Material::SPEC};
+  Material redRefl{{1.f, .2f, .2f}, Vec3::Zero(), Material::SPEC};
+  // Material whiteRefl{{1.f, 1.f, 1.f}, Vec3::Zero(), Material::SPEC};
+
   const float roomR = 4.f;
-  const float wallD = wallR + roomR;
 
-  scene_.objects.push_back({{-1, -roomR + 1.f, -1}, 1.f, white});
-  scene_.objects.push_back({{2, -roomR + 2.f, -2}, 2.f, blue});
+  scene_.objects.reserve(16);
 
-  scene_.objects.push_back({-Vec3::UnitY() * wallD, wallR, white});
-  scene_.objects.push_back({Vec3::UnitY() * wallD, wallR, whiteLight});
+  Affine tr = Affine::Identity();
 
-  scene_.objects.push_back({Vec3::UnitX() * wallD, wallR, red});
-  scene_.objects.push_back({-Vec3::UnitX() * wallD, wallR, green});
+  tr.translation() << 0.f, -roomR + 1.f, -0.5f;
+  tr.scale(1.f);
+  scene_.objects.push_back({"light sphere", Sphere{1.f}, whiteLight, tr});
+  tr.setIdentity();
+  tr.translation() << 2.f, -roomR + 2.f, -2.f;
+  scene_.objects.push_back({"green reflective sphere", Sphere{2.f}, greenRefl, tr});
+  tr.setIdentity();
+  tr.translation() << -2.f, -roomR + 2.f, -2.f;
+  scene_.objects.push_back({"white sphere", Sphere{2.f}, white, tr});
 
-  scene_.objects.push_back({-Vec3::UnitZ() * wallD, wallR, white});
+  tr.translation() << -Vec3::UnitY() * roomR;
+  scene_.objects.push_back({"floor", Plane{Vec3::UnitY()}, white, tr});
+  tr.translation() << Vec3::UnitY() * roomR;
+  scene_.objects.push_back({"ceiling", Plane{-Vec3::UnitY()}, white, tr});
+
+  tr.rotate(AngAx(R_PI * .1f, Vec3::UnitZ()));
+  tr.translation() << Vec3::UnitX() * roomR;
+  scene_.objects.push_back({"left wall", Plane{-Vec3::UnitX()}, redRefl, tr});
+  tr.setIdentity();
+  tr.rotate(AngAx(-R_PI * .1f, Vec3::UnitZ()));
+  tr.translation() << -Vec3::UnitX() * roomR;
+  scene_.objects.push_back({"right wall", Plane{Vec3::UnitX()}, green, tr});
+  tr.setIdentity();
+
+  tr.translation() << -Vec3::UnitZ() * roomR;
+  scene_.objects.push_back({"back wall", Plane{Vec3::UnitZ()}, blue, tr});
+
+  tr.translation() << Vec3::UnitZ() * roomR * 4;
+  scene_.objects.push_back({"Z+ wall", Plane{-Vec3::UnitZ()}, blue, tr});
+
+  tr.translation() << 0, roomR * 0.99f, 2.f;
+  tr.scale(Vec3{1.f, 1.f, roomR * 0.8f});
+  scene_.objects.push_back({"ceiling light", Disc{-Vec3::UnitY(), 2.f}, yellowLight, tr});
 
   pt_.reset(cam_);
+}
+
+void FullScreenOpenGLScene::resetBuffer(AppContext &ctx) {
+  pt_.reset(cam_);
+  ctx.spp = 0;
+}
+
+void FullScreenOpenGLScene::moveCamera(Affine const &tf, AppContext &ctx) {
+  cam_.moveCamera(tf);
+  resetBuffer(ctx);
 }

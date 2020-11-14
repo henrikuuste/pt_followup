@@ -1,16 +1,18 @@
 #include "common.h"
 
+#include "imgui_helpers.hpp"
 #include <SFML/Graphics/RenderWindow.hpp>
 #include <SFML/System/Clock.hpp>
 #include <SFML/Window/Event.hpp>
-#include <imgui-SFML.h>
-#include <imgui.h>
 
 // #include "cuda_wrapper.h"
 #include "options.h"
 #include "scenes/full_screen_opengl.h"
 
-void handleEvents(sf::RenderWindow &window);
+static constexpr float LIN_SPEED = 0.2f;
+static constexpr float ANG_SPEED = 0.02f;
+
+void handleEvents(sf::RenderWindow &window, FullScreenOpenGLScene &scene, AppContext &ctx);
 
 int main(int argc, const char **argv) {
   Options opt({std::next(argv), std::next(argv, argc)});
@@ -24,6 +26,7 @@ int main(int argc, const char **argv) {
   sf::RenderWindow window(sf::VideoMode(opt.width, opt.height), "SFML + CUDA",
                           sf::Style::Titlebar | sf::Style::Close);
   ImGui::SFML::Init(window);
+  window.setFramerateLimit(144);
   spdlog::info("SFML window created");
 
   FullScreenOpenGLScene scene(window);
@@ -32,19 +35,26 @@ int main(int argc, const char **argv) {
   sf::Clock deltaClock;
   while (window.isOpen()) {
     ImGui::SFML::Update(window, deltaClock.restart());
-    ctx.dtime = deltaClock.getElapsedTime().asSeconds();
 
     scene.update(ctx);
 
-    ImGui::Begin("FPS");
-    ImGui::Text("%.1f FPS", ImGui::GetIO().Framerate);
-    ImGui::Text("%d SPP at %.3f s", ctx.frame, ctx.elapsed_seconds);
+    ImGui::Begin("Stats");
+    ImGui::Text("%.1f FPS", static_cast<double>(ImGui::GetIO().Framerate));
+    ImGui::Text("%d SPP", static_cast<int>(ctx.spp));
+    ImGui::Text("%.3f s per SPP", static_cast<double>(ctx.elapsed_seconds));
+    ImGui::Text("%.2f %% error", static_cast<double>(ctx.renderError * 100.f));
     ImGui::End();
 
     ImGui::Begin("Control");
     ImGui::SetNextItemWidth(100);
-    ImGui::Combo("Display mode", reinterpret_cast<int *>(&ctx.mode), mode_strings,
-                 DisplayMode::MODE_COUNT);
+    if (ImGui::Combo("Display mode", &ctx.mode)) {
+      scene.resetBuffer(ctx);
+    }
+    if (ctx.mode == DisplayMode::Depth) {
+      if (ImGui::SliderFloat("Far plane", &ctx.far_plane, 0.0f, 30.0f)) {
+        scene.resetBuffer(ctx);
+      }
+    }
     ImGui::End();
 
     window.clear();
@@ -52,8 +62,8 @@ int main(int argc, const char **argv) {
     ImGui::SFML::Render(window);
     window.display();
 
-    handleEvents(window);
-    ctx.frame++;
+    handleEvents(window, scene, ctx);
+    ctx.dtime = deltaClock.getElapsedTime().asSeconds();
   }
 
   spdlog::info("Shutting down");
@@ -62,7 +72,7 @@ int main(int argc, const char **argv) {
   return 0;
 }
 
-void handleEvents(sf::RenderWindow &window) {
+void handleEvents(sf::RenderWindow &window, FullScreenOpenGLScene &scene, AppContext &ctx) {
   sf::Event event{};
   while (window.pollEvent(event)) {
     ImGui::SFML::ProcessEvent(event);
@@ -76,5 +86,45 @@ void handleEvents(sf::RenderWindow &window) {
         window.close();
       }
     }
+  }
+  // Stupid camera controller
+  Affine tf  = Affine::Identity();
+  bool moved = false;
+  if (sf::Keyboard::isKeyPressed(sf::Keyboard::Up)) {
+    tf.rotate(AngAx(-ANG_SPEED, Vec3::UnitX()));
+    moved = true;
+  }
+  if (sf::Keyboard::isKeyPressed(sf::Keyboard::Down)) {
+    tf.rotate(AngAx(ANG_SPEED, Vec3::UnitX()));
+    moved = true;
+  }
+  if (sf::Keyboard::isKeyPressed(sf::Keyboard::Left)) {
+    tf.rotate(AngAx(-ANG_SPEED, Vec3::UnitY()));
+    moved = true;
+  }
+  if (sf::Keyboard::isKeyPressed(sf::Keyboard::Right)) {
+    tf.rotate(AngAx(ANG_SPEED, Vec3::UnitY()));
+    moved = true;
+  }
+
+  if (sf::Keyboard::isKeyPressed(sf::Keyboard::A)) {
+    tf.translate(Vec3(-LIN_SPEED, 0, 0));
+    moved = true;
+  }
+  if (sf::Keyboard::isKeyPressed(sf::Keyboard::D)) {
+    tf.translate(Vec3(LIN_SPEED, 0, 0));
+    moved = true;
+  }
+  if (sf::Keyboard::isKeyPressed(sf::Keyboard::W)) {
+    tf.translate(Vec3(0, 0, LIN_SPEED));
+    moved = true;
+  }
+  if (sf::Keyboard::isKeyPressed(sf::Keyboard::S)) {
+    tf.translate(Vec3(0, 0, -LIN_SPEED));
+    moved = true;
+  }
+
+  if (moved) {
+    scene.moveCamera(tf, ctx);
   }
 }
