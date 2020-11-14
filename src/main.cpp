@@ -90,6 +90,23 @@ void handleEvents(sf::RenderWindow &window, FullScreenOpenGLScene &scene, AppCon
   // Stupid camera controller
   Affine tf  = Affine::Identity();
   bool moved = false;
+  if (sf::Keyboard::isKeyPressed(sf::Keyboard::Up)) {
+    tf.rotate(AngAx(-ANG_SPEED, Vec3::UnitX()));
+    moved = true;
+  }
+  if (sf::Keyboard::isKeyPressed(sf::Keyboard::Down)) {
+    tf.rotate(AngAx(ANG_SPEED, Vec3::UnitX()));
+    moved = true;
+  }
+  if (sf::Keyboard::isKeyPressed(sf::Keyboard::Left)) {
+    tf.rotate(AngAx(-ANG_SPEED, Vec3::UnitY()));
+    moved = true;
+  }
+  if (sf::Keyboard::isKeyPressed(sf::Keyboard::Right)) {
+    tf.rotate(AngAx(ANG_SPEED, Vec3::UnitY()));
+    moved = true;
+  }
+
   if (sf::Keyboard::isKeyPressed(sf::Keyboard::A)) {
     tf.translate(Vec3(-LIN_SPEED, 0, 0));
     moved = true;
@@ -106,6 +123,7 @@ void handleEvents(sf::RenderWindow &window, FullScreenOpenGLScene &scene, AppCon
     tf.translate(Vec3(0, 0, -LIN_SPEED));
     moved = true;
   }
+
   if (moved) {
     scene.moveCamera(tf, ctx);
   }
