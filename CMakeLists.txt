@@ -1,17 +1,17 @@
 cmake_minimum_required(VERSION 3.12)
 
-project(sfml_cuda_project CXX)
+project(sfml_cuda_project CXX CUDA)
 include(cmake/StandardProjectSettings.cmake)
 
 find_package(OpenMP)
 
-# find_package(CUDA REQUIRED)
+find_package(CUDA REQUIRED)
 
-# include(CheckLanguage)
-# check_language(CUDA)
-# SET(CUDA_SEPARABLE_COMPILATION ON)
-# cuda_select_nvcc_arch_flags(ARCH_FLAGS)
-# LIST(APPEND CUDA_NVCC_FLAGS ${ARCH_FLAGS})
+include(CheckLanguage)
+check_language(CUDA)
+SET(CUDA_SEPARABLE_COMPILATION ON)
+cuda_select_nvcc_arch_flags(ARCH_FLAGS)
+LIST(APPEND CUDA_NVCC_FLAGS ${ARCH_FLAGS})
 
 # Link this 'library' to set the c++ standard / compile-time options requested
 add_library(project_options INTERFACE)

@@ -4,9 +4,17 @@ App -> Scene : load
 loop unit closed
   App -> Scene : update
   activate Scene
+  Scene --> Scene : swapBuffer (conditional)
+  Window -> GPU : acquire OpenGL buffer
   Scene -> ThreadPool : create thread
   ThreadPool -> PathTracer : run tracer
   activate PathTracer
+  PathTracer -> GPU : transfer data
+  PathTracer -> GPU : run kernel
+  activate GPU
+  GPU -> PathTracer : sync
+  GPU -> Window : release buffer
+  deactivate GPU
   Scene -> App : return
   PathTracer --> GUI : progress
   PathTracer --> Scene : done (image)
@@ -16,7 +24,6 @@ loop unit closed
   App -> Window : clear
   App -> Scene : render
   activate Scene
-  Scene --> Scene : swapBuffer (conditional)
   Scene -> Window : draw OpenGL
   deactivate Scene
   App -> GUI : render
@@ -182,6 +189,10 @@ interface Sampler {
 class SamplerStd implements Sampler {
   std::mt19937 gen;
   std::uniform_real_distribution<float> dis;
+}
+
+class SamplerCurand implements Sampler {
+  curandState gen;
 }
 
 ' class Path {

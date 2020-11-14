@@ -1,7 +1,7 @@
 #pragma once
 
 #include "../common.h"
-// #include "../cuda_memory.hpp"
+#include "../cuda_memory.hpp"
 #include "pt.h"
 #include <GL/glew.h>
 
@@ -25,10 +25,9 @@ private:
   std::future<void> runPTHandle;
   unsigned int width, height;
 
-  std::vector<Pixel> screenBuffer_;
   GLuint glVBO_;
-  // cudaGraphicsResource_t cudaVBO_;
-  // cuda::raw_ptr<Pixel> vboPtr_;
+  cudaGraphicsResource_t cudaVBO_;
+  cuda::raw_ptr<Pixel> vboPtr_;
   PathTracer pt_;
   Scene scene_;
   Camera cam_;

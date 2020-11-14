@@ -1,7 +1,7 @@
 #include "full_screen_opengl.h"
 
 #include <chrono>
-// #include <cuda_gl_interop.h>
+#include <cuda_gl_interop.h>
 
 using Time = std::chrono::steady_clock;
 using Fsec = std::chrono::duration<float>;
@@ -23,47 +23,36 @@ FullScreenOpenGLScene::FullScreenOpenGLScene(sf::RenderWindow const &window) {
   glBufferData(GL_ARRAY_BUFFER, width * height * sizeof(Pixel), 0, GL_DYNAMIC_DRAW);
   glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-  // cudaGraphicsGLRegisterBuffer(&cudaVBO_, glVBO_, cudaGraphicsMapFlagsNone);
+  cudaGraphicsGLRegisterBuffer(&cudaVBO_, glVBO_, cudaGraphicsMapFlagsNone);
 
   spdlog::debug("VBO created [{} {}]", width, height);
-  screenBuffer_.resize(width * height);
-  for (unsigned int row = 0; row < height; ++row) {
-    for (unsigned int col = 0; col < width; ++col) {
-      auto idx = row * width + col;
-      screenBuffer_[idx].xy << static_cast<float>(col), static_cast<float>(row);
-      screenBuffer_[idx].color << static_cast<uint8_t>(col * 255 / width),
-          static_cast<uint8_t>(row * 255 / height), 0, 255;
-    }
-  }
 
   initScene();
 }
 
 FullScreenOpenGLScene::~FullScreenOpenGLScene() {
-  runPTHandle.wait();
+  if (runPTHandle.valid())
+    runPTHandle.wait();
   glDeleteBuffers(1, &glVBO_);
 }
 
 void FullScreenOpenGLScene::update([[maybe_unused]] AppContext &ctx) {
-  // CUDA_CALL(cudaGraphicsMapResources(1, &cudaVBO_, 0));
-  // size_t num_bytes;
-  // CUDA_CALL(cudaGraphicsResourceGetMappedPointer((void **)&vboPtr_, &num_bytes, cudaVBO_));
+  CUDA_CALL(cudaGraphicsMapResources(1, &cudaVBO_, 0));
+  size_t num_bytes;
+  CUDA_CALL(cudaGraphicsResourceGetMappedPointer((void **)&vboPtr_, &num_bytes, cudaVBO_));
   // renderCuda();
-  // CUDA_CALL(cudaGraphicsUnmapResources(1, &cudaVBO_, 0));
-  if (not renderingPT.load()) {
-    glBindBuffer(GL_ARRAY_BUFFER, glVBO_);
-    glBufferData(GL_ARRAY_BUFFER, screenBuffer_.size() * sizeof(Pixel), screenBuffer_.data(),
-                 GL_DYNAMIC_DRAW);
-    renderingPT = true;
-    runPTHandle = std::async(std::launch::async, [&]() {
-      auto start = Time::now();
-      pt_.render(scene_, cam_, ctx, screenBuffer_);
-      auto finish         = Time::now();
-      ctx.elapsed_seconds = Fsec{finish - start}.count();
-      ctx.spp++;
-      renderingPT = false;
-    });
-  }
+  // if (not renderingPT.load()) {
+  // renderingPT = true;
+  // runPTHandle = std::async(std::launch::async, [&]() {
+  auto start = Time::now();
+  pt_.renderCuda(scene_, cam_, ctx, vboPtr_);
+  auto finish         = Time::now();
+  ctx.elapsed_seconds = Fsec{finish - start}.count();
+  ctx.spp++;
+  //     renderingPT = false;
+  //   });
+  // }
+  CUDA_CALL(cudaGraphicsUnmapResources(1, &cudaVBO_, 0));
 }
 
 void FullScreenOpenGLScene::render(sf::RenderWindow &window) {

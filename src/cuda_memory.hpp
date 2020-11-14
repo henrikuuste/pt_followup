@@ -99,7 +99,7 @@ public:
 
   void clear() {
     if (ptr_ && count_ > 0) {
-      spdlog::debug("Freeing CUDA memory at {}, {}", fmt::ptr(ptr_), count_);
+      spdlog::debug("Freeing CUDA memory at {}, {}, {}", fmt::ptr(ptr_), count_, sizeBytes());
       CUDA_CALL(cudaDeviceSynchronize());
       CUDA_CALL(cudaFree(static_cast<void *>(ptr_)));
     }

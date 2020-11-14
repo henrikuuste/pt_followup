@@ -5,7 +5,7 @@
 #include <SFML/System/Clock.hpp>
 #include <SFML/Window/Event.hpp>
 
-// #include "cuda_wrapper.h"
+#include "cuda_wrapper.h"
 #include "options.h"
 #include "scenes/full_screen_opengl.h"
 
@@ -20,8 +20,8 @@ int main(int argc, const char **argv) {
 
   spdlog::info("Starting application");
 
-  // int gpuId = cuda::findBestDevice();
-  // cuda::gpuDeviceInit(gpuId);
+  int gpuId = cuda::findBestDevice();
+  cuda::gpuDeviceInit(gpuId);
 
   sf::RenderWindow window(sf::VideoMode(opt.width, opt.height), "SFML + CUDA",
                           sf::Style::Titlebar | sf::Style::Close);

@@ -47,6 +47,6 @@ struct AppContext {
   float gamma           = 2.4f;
   int max_depth         = 4;
   float far_plane       = 20.f;
-  std::map<std::string, bool> features;
+  // std::map<std::string, bool> features;
   DisplayMode mode = DisplayMode::Color;
 };
