@@ -103,10 +103,14 @@ Intersection Sphere::intersect(Ray const &r, Object const *obj) const {
   if (t0 > t1)
     std::swap(t0, t1);
 
-  if (t0 < 0) {
-    t0 = t1; // if t0 is negative, let's use t1 instead
-    if (t0 < 0)
-      return {}; // both t0 and t1 are negative
+  // if (t0 < 0) {
+  //   t0 = t1; // if t0 is negative, let's use t1 instead
+  //   if (t0 < 0)
+  //     return {}; // both t0 and t1 are negative
+  // }
+
+  if (t0 < 0 && t1 < 0) {
+    return {};
   }
 
   Vec3 x = r.origin + r.dir * t0;
@@ -155,7 +159,32 @@ MaterialSample Material::sample(Intersection const &i, Ray const &wo, TraceConte
     ms.wi = {i.x + i.n * EPSILON, d, wo.depth + 1};
 
   } else if (type == SPEC) {
-    ms.wi = {i.x, wo.dir - i.n * 2 * i.n.dot(wo.dir), wo.depth + 1};
+    ms.wi = {i.x + i.n * EPSILON, wo.dir - i.n * 2 * i.n.dot(wo.dir), wo.depth + 1};
+  } else if (type == REFR) {
+    float refractive_idx = 1.52;
+    float ro             = (1.0 - refractive_idx) / (1.0 + refractive_idx);
+    ro                   = ro * ro;
+
+    Vec3 n           = i.n;
+    float normal_dir = 1;
+    if (n.dot(wo.dir) > 0) { // Determining if within medium
+      normal_dir     = -1;
+      n              = n * -1;
+      refractive_idx = 1 / refractive_idx;
+    }
+    refractive_idx    = 1 / refractive_idx;
+    double cos_theta1 = (n.dot(wo.dir)) * -1; // Computing CosTheta1
+    double cos_theta2 = 1.0 - refractive_idx * refractive_idx *
+                                  (1.0 - cos_theta1 * cos_theta1); // Computing CostTheta2
+    double rProb = ro + (1.0 - ro) * pow(1.0 - cos_theta1, 5.0);   // Schlick Approximation
+    if (cos_theta2 > 0 && ctx.sample1D() > rProb) {                // Refraction
+      Vec3 direction =
+          ((wo.dir * refractive_idx) + (n * (refractive_idx * cos_theta1 - sqrt(cos_theta2))));
+      ms.wi = {i.x - normal_dir * i.n * EPSILON, direction, wo.depth + 1};
+    } else { // Else do reflection
+      Vec3 direction = wo.dir - i.n * 2 * i.n.dot(wo.dir);
+      ms.wi          = {i.x + normal_dir * i.n * EPSILON, direction, wo.depth + 1};
+    }
   } else {
     spdlog::error("Not implemented");
     abort();

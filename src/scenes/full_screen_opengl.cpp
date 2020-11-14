@@ -110,6 +110,8 @@ void FullScreenOpenGLScene::initScene() {
   Material redRefl{{1, .2, .2}, {0, 0, 0}, Material::SPEC};
   Material whiteRefl{{1, 1, 1}, {0, 0, 0}, Material::SPEC};
 
+  Material whiteGlass{{1, 1, 1}, {0, 0, 0}, Material::REFR};
+
   const float wallR = 1e4f;
   const float roomR = 4.f;
   const float wallD = wallR + roomR;
@@ -126,7 +128,7 @@ void FullScreenOpenGLScene::initScene() {
   scene_.objects.push_back({"green reflective sphere", Sphere{2.f}, greenRefl, tr});
   tr.setIdentity();
   tr.translation() << -2, -roomR + 2.f, -2;
-  scene_.objects.push_back({"white sphere", Sphere{2.f}, white, tr});
+  scene_.objects.push_back({"white sphere", Sphere{2.f}, whiteGlass, tr});
 
   tr.translation() << -Vec3::UnitY() * roomR;
   scene_.objects.push_back({"floor", Plane{Vec3::UnitY()}, white, tr});

@@ -41,7 +41,7 @@ struct Camera {
 };
 
 struct Material {
-  enum MaterialType { DIFF, SPEC };
+  enum MaterialType { DIFF, SPEC, REFR };
   Radiance diffuse;
   Radiance emittance = Radiance::Zero();
   MaterialType type  = DIFF;
