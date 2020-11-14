@@ -4,6 +4,7 @@
 #include "../cuda_memory.hpp"
 #include "pt_math.h"
 #include "sampler.h"
+#include <ciso646>
 #include <mutex>
 #include <vector>
 

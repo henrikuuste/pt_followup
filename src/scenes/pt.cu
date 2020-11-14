@@ -184,23 +184,24 @@ CU_HD Intersection Disc::intersect(Ray const &r, Object const *obj) const {
 CU_D MaterialSample Material::sample(Intersection const &i, Ray const &wo,
                                      TraceContext &ctx) const {
   MaterialSample ms;
-  ms.fr = diffuse;
 
   if (type == DIFF) {
+    ms.fr  = diffuse / R_PI;
     Vec3 d = (ctx.sample3D() * 2.f - Vec3::Ones()).normalized();
     if (d.dot(i.n) < 0) {
       d = -d;
     }
-    ms.wi = {i.x + i.n * EPSILON, d, wo.depth + 1};
-
+    ms.wi  = {i.x + i.n * EPSILON, d, wo.depth + 1};
+    ms.pdf = 1.f / R_2PI;
   } else if (type == SPEC) {
-    ms.wi = {i.x, wo.dir - i.n * 2 * i.n.dot(wo.dir), wo.depth + 1};
+    ms.fr  = diffuse;
+    ms.wi  = {i.x, wo.dir - i.n * 2 * i.n.dot(wo.dir), wo.depth + 1};
+    ms.pdf = ms.wi.dir.dot(i.n);
   } else {
     // spdlog::error("Not implemented");
     // abort();
     asm("exit;");
   }
-  ms.pdf = 1.f;
   return ms;
 }
 
