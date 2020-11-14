@@ -158,3 +158,8 @@ void FullScreenOpenGLScene::resetBuffer(AppContext &ctx) {
   pt_.reset(cam_);
   ctx.spp = 0;
 }
+
+void FullScreenOpenGLScene::moveCamera(Affine const &tf, AppContext &ctx) {
+  cam_.moveCamera(tf);
+  resetBuffer(ctx);
+}

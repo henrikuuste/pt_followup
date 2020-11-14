@@ -9,7 +9,10 @@
 #include "options.h"
 #include "scenes/full_screen_opengl.h"
 
-void handleEvents(sf::RenderWindow &window);
+#define LIN_SPEED (float)0.2
+#define ANG_SPEED (float)0.02
+
+void handleEvents(sf::RenderWindow &window, FullScreenOpenGLScene &scene, AppContext &ctx);
 
 int main(int argc, const char **argv) {
   Options opt({std::next(argv), std::next(argv, argc)});
@@ -59,7 +62,7 @@ int main(int argc, const char **argv) {
     ImGui::SFML::Render(window);
     window.display();
 
-    handleEvents(window);
+    handleEvents(window, scene, ctx);
     ctx.dtime = deltaClock.getElapsedTime().asSeconds();
   }
 
@@ -69,7 +72,7 @@ int main(int argc, const char **argv) {
   return 0;
 }
 
-void handleEvents(sf::RenderWindow &window) {
+void handleEvents(sf::RenderWindow &window, FullScreenOpenGLScene &scene, AppContext &ctx) {
   sf::Event event{};
   while (window.pollEvent(event)) {
     ImGui::SFML::ProcessEvent(event);
@@ -83,5 +86,27 @@ void handleEvents(sf::RenderWindow &window) {
         window.close();
       }
     }
+  }
+  // Stupid camera controller
+  Affine tf  = Affine::Identity();
+  bool moved = false;
+  if (sf::Keyboard::isKeyPressed(sf::Keyboard::A)) {
+    tf.translate(Vec3(-LIN_SPEED, 0, 0));
+    moved = true;
+  }
+  if (sf::Keyboard::isKeyPressed(sf::Keyboard::D)) {
+    tf.translate(Vec3(LIN_SPEED, 0, 0));
+    moved = true;
+  }
+  if (sf::Keyboard::isKeyPressed(sf::Keyboard::W)) {
+    tf.translate(Vec3(0, 0, LIN_SPEED));
+    moved = true;
+  }
+  if (sf::Keyboard::isKeyPressed(sf::Keyboard::S)) {
+    tf.translate(Vec3(0, 0, -LIN_SPEED));
+    moved = true;
+  }
+  if (moved) {
+    scene.moveCamera(tf, ctx);
   }
 }

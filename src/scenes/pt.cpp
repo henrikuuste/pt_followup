@@ -177,3 +177,5 @@ Ray Camera::castRay(Vec2 const &coord, TraceContext &ctx) const {
       u * ((coord.x() + rnd.x()) / w - .5f) + v * ((coord.y() + rnd.y()) / h - .5f) + Vec3::UnitZ();
   return {tr.translation(), tr.linear() * d.normalized()};
 }
+
+void Camera::moveCamera(Affine const &tf) { tr = tr * tf; }
