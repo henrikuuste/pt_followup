@@ -96,7 +96,7 @@ void FullScreenOpenGLScene::initScene() {
   cam_.h = static_cast<float>(height);
   cam_.tr.translation() << 0.f, 0.f, 14.f;
   cam_.tr.rotate(AngAx(R_PI, Vec3::UnitY()));
-  cam_.tr.rotate(AngAx(R_PI * .05f, -Vec3::UnitZ()));
+  // cam_.tr.rotate(AngAx(R_PI * .05f, -Vec3::UnitZ()));
   cam_.fov = R_PI * 0.4f;
 
   Material whiteLight{Vec3::Zero(), {1.f, 1.f, 1.f}};
@@ -157,4 +157,9 @@ void FullScreenOpenGLScene::initScene() {
 void FullScreenOpenGLScene::resetBuffer(AppContext &ctx) {
   pt_.reset(cam_);
   ctx.spp = 0;
+}
+
+void FullScreenOpenGLScene::moveCamera(Affine const &tf, AppContext &ctx) {
+  cam_.moveCamera(tf);
+  resetBuffer(ctx);
 }

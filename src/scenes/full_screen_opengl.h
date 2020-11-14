@@ -18,6 +18,7 @@ public:
   void update(AppContext &ctx);
   void render(sf::RenderWindow &window);
   void resetBuffer(AppContext &ctx);
+  void moveCamera(Affine const &tf, AppContext &ctx);
 
 private:
   void initScene();
