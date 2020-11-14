@@ -181,13 +181,12 @@ struct PathTracer {
   std::mutex dataMutex;
 
   void reset(Camera const &cam) {
-    std::unique_lock lk(dataMutex);
-    if (radianceBuffer.size() != (cam.w * cam.h))
+    if (radianceBuffer.size() != (cam.w * cam.h)) {
+      std::unique_lock lk(dataMutex);
       radianceBuffer.allocateManaged(cam.w * cam.h);
-    // CUDA_CALL(cudaMemset(radianceBuffer.get(), 0, radianceBuffer.sizeBytes()));
-    // CUDA_CALL(cudaDeviceSynchronize());
+    }
   }
   void render(Scene const &scene, Camera const &cam, AppContext &ctx, std::vector<Pixel> &image);
-  void renderCuda(Scene const &scene, Camera const &cam, AppContext &ctx,
+  void renderCuda(Scene const &scene, Camera const &cam, std::mutex &sceneMutex, AppContext &ctx,
                   cuda::raw_ptr<Pixel> image);
 };

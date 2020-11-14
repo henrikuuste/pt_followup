@@ -26,9 +26,11 @@ __global__ void kRender(CudaRenderContext ctx) {
   smp.init(ctx.app.spp + 1, i);
   tctx.sampler = &smp;
 
-  Ray primary      = ctx.cam.castRay(pixel.xy, tctx);
-  Radiance rSample = trace(ctx.scene, primary, tctx);
-  radiance += rSample;
+  for (int sample = 0; sample < ctx.app.samples; sample++) {
+    Ray primary      = ctx.cam.castRay(pixel.xy, tctx);
+    Radiance rSample = trace(ctx.scene, primary, tctx);
+    radiance += rSample / ctx.app.samples;
+  }
   // if (not rSample.isZero()) {
   //   Radiance change = rSample.cwiseQuotient(radianceBuffer[uidx]);
   //   if (not change.hasNaN()) {
@@ -40,14 +42,17 @@ __global__ void kRender(CudaRenderContext ctx) {
   pixel.xy << x, y;
 }
 
-void PathTracer::renderCuda(Scene const &scene, Camera const &cam, AppContext &ctx,
-                            cuda::raw_ptr<Pixel> image) {
+void PathTracer::renderCuda(Scene const &scene, Camera const &cam, std::mutex &sceneMutex,
+                            AppContext &ctx, cuda::raw_ptr<Pixel> image) {
 
-  std::unique_lock lk(dataMutex);
   CudaRenderContext cctx;
-  cctx.cam      = cam;
-  cctx.app      = ctx;
-  cctx.scene    = scene;
+  {
+    std::unique_lock lk(sceneMutex);
+    cctx.cam   = cam;
+    cctx.app   = ctx;
+    cctx.scene = scene;
+  }
+  std::unique_lock lk(dataMutex);
   cctx.image    = image;
   cctx.radiance = radianceBuffer;
 
