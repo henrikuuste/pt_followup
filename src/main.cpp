@@ -9,8 +9,8 @@
 #include "options.h"
 #include "scenes/full_screen_opengl.h"
 
-static constexpr float LIN_SPEED = 0.2f;
-static constexpr float ANG_SPEED = 0.02f;
+static constexpr float LIN_SPEED = 8.0f;
+static constexpr float ANG_SPEED = 2.0f;
 
 void handleEvents(sf::RenderWindow &window, FullScreenOpenGLScene &scene, AppContext &ctx);
 
@@ -99,28 +99,28 @@ void handleEvents(sf::RenderWindow &window, FullScreenOpenGLScene &scene, AppCon
   //   moved = true;
   // }
   if (sf::Keyboard::isKeyPressed(sf::Keyboard::Left)) {
-    tf.rotate(AngAx(-ANG_SPEED, Vec3::UnitY()));
+    tf.rotate(AngAx(-ANG_SPEED * ctx.dtime, Vec3::UnitY()));
     moved = true;
   }
   if (sf::Keyboard::isKeyPressed(sf::Keyboard::Right)) {
-    tf.rotate(AngAx(ANG_SPEED, Vec3::UnitY()));
+    tf.rotate(AngAx(ANG_SPEED * ctx.dtime, Vec3::UnitY()));
     moved = true;
   }
 
   if (sf::Keyboard::isKeyPressed(sf::Keyboard::A)) {
-    tf.translate(Vec3(-LIN_SPEED, 0, 0));
+    tf.translate(Vec3(-LIN_SPEED * ctx.dtime, 0, 0));
     moved = true;
   }
   if (sf::Keyboard::isKeyPressed(sf::Keyboard::D)) {
-    tf.translate(Vec3(LIN_SPEED, 0, 0));
+    tf.translate(Vec3(LIN_SPEED * ctx.dtime, 0, 0));
     moved = true;
   }
   if (sf::Keyboard::isKeyPressed(sf::Keyboard::W)) {
-    tf.translate(Vec3(0, 0, LIN_SPEED));
+    tf.translate(Vec3(0, 0, LIN_SPEED * ctx.dtime));
     moved = true;
   }
   if (sf::Keyboard::isKeyPressed(sf::Keyboard::S)) {
-    tf.translate(Vec3(0, 0, -LIN_SPEED));
+    tf.translate(Vec3(0, 0, -LIN_SPEED * ctx.dtime));
     moved = true;
   }
 

@@ -46,7 +46,7 @@ struct AppContext {
   float exposure        = 1.f;
   float gamma           = 2.4f;
   int max_depth         = 4;
-  int samples           = 3;
+  int samples           = 1;
   float far_plane       = 20.f;
   bool request_reset    = true;
   // std::map<std::string, bool> features;
