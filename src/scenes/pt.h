@@ -152,7 +152,6 @@ struct Scene {
       spdlog::debug("Copying scene to GPU");
       CUDA_CALL(cudaMemcpy(deviceObjects_.get(), objects.data(), deviceObjects_.sizeBytes(),
                            cudaMemcpyHostToDevice));
-      CUDA_CALL(cudaDeviceSynchronize());
       dirty_ = false;
     }
     return {deviceObjects_};

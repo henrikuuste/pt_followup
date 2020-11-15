@@ -8,6 +8,8 @@
 #include "cuda_wrapper.h"
 #include "options.h"
 #include "scenes/full_screen_opengl.h"
+#include "gui/stats.hpp"
+#include "gui/control.hpp"
 
 static constexpr float LIN_SPEED = 8.0f;
 static constexpr float ANG_SPEED = 2.0f;
@@ -30,32 +32,18 @@ int main(int argc, const char **argv) {
   spdlog::info("SFML window created");
 
   FullScreenOpenGLScene scene(window);
+  StatsGUI statsGUI;
+  ControlGUI controlGUI(scene);
 
   AppContext ctx;
   sf::Clock deltaClock;
+
+  scene.run(ctx);
   while (window.isOpen()) {
     ImGui::SFML::Update(window, deltaClock.restart());
 
-    scene.update(ctx);
-
-    ImGui::Begin("Stats");
-    ImGui::Text("%.1f FPS", static_cast<double>(ImGui::GetIO().Framerate));
-    ImGui::Text("%d SPP", static_cast<int>(ctx.spp));
-    ImGui::Text("%.3f s per SPP", static_cast<double>(ctx.elapsed_seconds));
-    ImGui::Text("%.2f %% error", static_cast<double>(ctx.renderError * 100.f));
-    ImGui::End();
-
-    ImGui::Begin("Control");
-    ImGui::SetNextItemWidth(100);
-    if (ImGui::Combo("Display mode", &ctx.mode)) {
-      scene.resetBuffer(ctx);
-    }
-    if (ctx.mode == DisplayMode::Depth) {
-      if (ImGui::SliderFloat("Far plane", &ctx.far_plane, 0.0f, 30.0f)) {
-        scene.resetBuffer(ctx);
-      }
-    }
-    ImGui::End();
+    statsGUI.draw(ctx);
+    controlGUI.draw(ctx);
 
     window.clear();
     scene.render(window);

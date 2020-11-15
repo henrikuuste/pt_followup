@@ -1,5 +1,6 @@
 #include "pt.h"
 #include "sampler_curand.h"
+using namespace std::literals::chrono_literals;
 
 struct CudaRenderContext {
   Camera cam;

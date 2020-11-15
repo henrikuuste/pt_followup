@@ -21,7 +21,7 @@ public:
   FullScreenOpenGLScene(sf::RenderWindow const &window);
   ~FullScreenOpenGLScene();
 
-  void update(AppContext &ctx);
+  void run(AppContext &ctx);
   void render(sf::RenderWindow &window);
   void resetBuffer(AppContext &ctx);
   void moveCamera(Affine const &tf, AppContext &ctx);
@@ -37,6 +37,7 @@ private:
 
   std::mutex sceneMutex_;
   std::mutex swapMutex_;
+  bool ptNextFrameAvailable_  = false;
   std::atomic_bool vboMapped_ = false;
   GLuint glVBO_[3];
   cudaGraphicsResource_t cudaVBO_[3];

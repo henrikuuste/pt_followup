@@ -5,12 +5,14 @@ add_executable(sfml_cuda
     common.h
     scenes/full_screen_opengl.cpp
     scenes/full_screen_opengl.h
-    # scenes/pt.cpp
     scenes/pt.cu
     scenes/pt.h
     scenes/sampler_std.h
     scenes/sampler.h
-    scenes/pt_math.h)
+    scenes/pt_math.h
+    gui/stats.hpp
+    gui/control.hpp
+)
 target_compile_options(sfml_cuda PRIVATE                        
     $<$<COMPILE_LANGUAGE:CUDA>:--std=c++17 -lineinfo --expt-relaxed-constexpr>
 )

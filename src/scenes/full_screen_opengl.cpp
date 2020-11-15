@@ -5,6 +5,7 @@
 
 using Time = std::chrono::steady_clock;
 using Fsec = std::chrono::duration<float>;
+using namespace std::literals::chrono_literals;
 
 FullScreenOpenGLScene::FullScreenOpenGLScene(sf::RenderWindow const &window) {
   glewInit();
@@ -52,33 +53,47 @@ FullScreenOpenGLScene::~FullScreenOpenGLScene() {
 void FullScreenOpenGLScene::mapVBO() {
   if (vboMapped_.load())
     return;
-  CUDA_CALL(cudaGraphicsMapResources(3, cudaVBO_, 0));
   size_t num_bytes;
-  CUDA_CALL(cudaGraphicsResourceGetMappedPointer(reinterpret_cast<void **>(&vboPtr_[0]), &num_bytes,
-                                                 cudaVBO_[0]));
-  CUDA_CALL(cudaGraphicsResourceGetMappedPointer(reinterpret_cast<void **>(&vboPtr_[1]), &num_bytes,
-                                                 cudaVBO_[1]));
-  CUDA_CALL(cudaGraphicsResourceGetMappedPointer(reinterpret_cast<void **>(&vboPtr_[2]), &num_bytes,
-                                                 cudaVBO_[2]));
+  CUDA_CALL(cudaGraphicsMapResources(1, &cudaVBO_[drawVBO_], 0));
+  CUDA_CALL(cudaGraphicsResourceGetMappedPointer(reinterpret_cast<void **>(&vboPtr_[drawVBO_]),
+                                                 &num_bytes, cudaVBO_[drawVBO_]));
+  spdlog::debug("Mapped VBO {} to {} with {} bytes", drawVBO_, fmt::ptr(vboPtr_[drawVBO_].get()),
+                num_bytes);
+
+  CUDA_CALL(cudaGraphicsMapResources(1, &cudaVBO_[renderVBO_], 0));
+  CUDA_CALL(cudaGraphicsResourceGetMappedPointer(reinterpret_cast<void **>(&vboPtr_[renderVBO_]),
+                                                 &num_bytes, cudaVBO_[renderVBO_]));
+  spdlog::debug("Mapped VBO {} to {} with {} bytes", renderVBO_,
+                fmt::ptr(vboPtr_[renderVBO_].get()), num_bytes);
+
+  CUDA_CALL(cudaGraphicsMapResources(1, &cudaVBO_[availableVBO_], 0));
+  CUDA_CALL(cudaGraphicsResourceGetMappedPointer(reinterpret_cast<void **>(&vboPtr_[availableVBO_]),
+                                                 &num_bytes, cudaVBO_[availableVBO_]));
+  spdlog::debug("Mapped VBO {} to {} with {} bytes", availableVBO_,
+                fmt::ptr(vboPtr_[availableVBO_].get()), num_bytes);
   vboMapped_ = true;
 }
 
 void FullScreenOpenGLScene::unmapVBO() {
   if (!vboMapped_.load())
     return;
-  CUDA_CALL(cudaGraphicsUnmapResources(3, cudaVBO_, 0));
+  CUDA_CALL(cudaGraphicsUnmapResources(1, &cudaVBO_[drawVBO_], 0));
+  CUDA_CALL(cudaGraphicsUnmapResources(1, &cudaVBO_[renderVBO_], 0));
+  CUDA_CALL(cudaGraphicsUnmapResources(1, &cudaVBO_[availableVBO_], 0));
   vboMapped_ = false;
 }
 
-void FullScreenOpenGLScene::update([[maybe_unused]] AppContext &ctx) {
+void FullScreenOpenGLScene::run([[maybe_unused]] AppContext &ctx) {
   mapVBO();
   if (ptState_.load() == PTState::IDLE) {
-    ptState_     = PTState::RUNNING;
+    ptState_ = PTState::RUNNING;
+    spdlog::info("Starting CUDA thread");
     runPTHandle_ = std::async(std::launch::async, [&]() {
       while (ptState_.load() == PTState::RUNNING) {
-        {
-          std::unique_lock lk(swapMutex_);
-          std::swap(renderVBO_, availableVBO_);
+        if (ctx.elapsed_seconds * 2.f > ctx.dtime) {
+          while (ptNextFrameAvailable_ and ptState_.load() == PTState::RUNNING) {
+            std::this_thread::sleep_for(1ms); // Leave time for other GPU things
+          }
         }
         if (ctx.request_reset) {
           ctx.spp           = 0;
@@ -89,7 +104,13 @@ void FullScreenOpenGLScene::update([[maybe_unused]] AppContext &ctx) {
         auto finish         = Time::now();
         ctx.elapsed_seconds = Fsec{finish - start}.count();
         ctx.spp++;
+        {
+          std::unique_lock lk(swapMutex_);
+          std::swap(renderVBO_, availableVBO_);
+          ptNextFrameAvailable_ = true;
+        }
       }
+      spdlog::info("CUDA thread shutting down");
     });
   }
 }
@@ -111,9 +132,11 @@ void FullScreenOpenGLScene::render(sf::RenderWindow &window) {
   glDisableClientState(GL_TEXTURE_COORD_ARRAY);
   {
     std::unique_lock lk(swapMutex_);
-    std::swap(drawVBO_, availableVBO_);
+    if (ptNextFrameAvailable_) {
+      std::swap(drawVBO_, availableVBO_);
+      ptNextFrameAvailable_ = false;
+    }
   }
-
   glBindBuffer(GL_ARRAY_BUFFER, glVBO_[drawVBO_]);
   glVertexPointer(2, GL_FLOAT, 12, 0);
   glColorPointer(4, GL_UNSIGNED_BYTE, 12, reinterpret_cast<GLvoid *>(8));
