@@ -24,7 +24,8 @@ public:
   void update(AppContext &ctx);
   void render(sf::RenderWindow &window);
   void resetBuffer(AppContext &ctx);
-  void moveCamera(Affine const &tf, AppContext &ctx);
+  void setCameraTf(Affine const &tf, AppContext &ctx);
+  Camera cam_;
 
 private:
   void initScene();
@@ -46,5 +47,4 @@ private:
   int availableVBO_ = 2;
   PathTracer pt_;
   Scene scene_;
-  Camera cam_;
 };
