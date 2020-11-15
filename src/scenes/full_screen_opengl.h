@@ -38,10 +38,12 @@ private:
   std::mutex sceneMutex_;
   std::mutex swapMutex_;
   std::atomic_bool vboMapped_ = false;
-  GLuint glVBO_[2];
-  cudaGraphicsResource_t cudaVBO_[2];
-  cuda::raw_ptr<Pixel> vboPtr_[2];
-  int renderVBO_ = 0;
+  GLuint glVBO_[3];
+  cudaGraphicsResource_t cudaVBO_[3];
+  cuda::raw_ptr<Pixel> vboPtr_[3];
+  int drawVBO_      = 0;
+  int renderVBO_    = 1;
+  int availableVBO_ = 2;
   PathTracer pt_;
   Scene scene_;
   Camera cam_;

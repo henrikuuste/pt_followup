@@ -14,7 +14,7 @@ FullScreenOpenGLScene::FullScreenOpenGLScene(sf::RenderWindow const &window) {
   }
   spdlog::info("OpenGL initialized");
 
-  glGenBuffers(2, glVBO_);
+  glGenBuffers(3, glVBO_);
 
   // initialize VBO
   width  = static_cast<unsigned int>(static_cast<float>(window.getSize().x) * 0.6f);
@@ -24,10 +24,13 @@ FullScreenOpenGLScene::FullScreenOpenGLScene(sf::RenderWindow const &window) {
   glBufferData(GL_ARRAY_BUFFER, width * height * sizeof(Pixel), 0, GL_DYNAMIC_DRAW);
   glBindBuffer(GL_ARRAY_BUFFER, glVBO_[1]);
   glBufferData(GL_ARRAY_BUFFER, width * height * sizeof(Pixel), 0, GL_DYNAMIC_DRAW);
+  glBindBuffer(GL_ARRAY_BUFFER, glVBO_[2]);
+  glBufferData(GL_ARRAY_BUFFER, width * height * sizeof(Pixel), 0, GL_DYNAMIC_DRAW);
   glBindBuffer(GL_ARRAY_BUFFER, 0);
 
   cudaGraphicsGLRegisterBuffer(&cudaVBO_[0], glVBO_[0], cudaGraphicsMapFlagsNone);
   cudaGraphicsGLRegisterBuffer(&cudaVBO_[1], glVBO_[1], cudaGraphicsMapFlagsNone);
+  cudaGraphicsGLRegisterBuffer(&cudaVBO_[2], glVBO_[2], cudaGraphicsMapFlagsNone);
 
   spdlog::debug("VBO created [{} {}]", width, height);
 
@@ -42,23 +45,28 @@ FullScreenOpenGLScene::~FullScreenOpenGLScene() {
   CUDA_CALL(cudaDeviceSynchronize());
   cudaGraphicsUnregisterResource(cudaVBO_[0]);
   cudaGraphicsUnregisterResource(cudaVBO_[1]);
-  glDeleteBuffers(2, glVBO_);
+  cudaGraphicsUnregisterResource(cudaVBO_[2]);
+  glDeleteBuffers(3, glVBO_);
 }
 
 void FullScreenOpenGLScene::mapVBO() {
   if (vboMapped_.load())
     return;
-  CUDA_CALL(cudaGraphicsMapResources(2, cudaVBO_, 0));
+  CUDA_CALL(cudaGraphicsMapResources(3, cudaVBO_, 0));
   size_t num_bytes;
-  CUDA_CALL(cudaGraphicsResourceGetMappedPointer((void **)&vboPtr_[0], &num_bytes, cudaVBO_[0]));
-  CUDA_CALL(cudaGraphicsResourceGetMappedPointer((void **)&vboPtr_[1], &num_bytes, cudaVBO_[1]));
+  CUDA_CALL(cudaGraphicsResourceGetMappedPointer(reinterpret_cast<void **>(&vboPtr_[0]), &num_bytes,
+                                                 cudaVBO_[0]));
+  CUDA_CALL(cudaGraphicsResourceGetMappedPointer(reinterpret_cast<void **>(&vboPtr_[1]), &num_bytes,
+                                                 cudaVBO_[1]));
+  CUDA_CALL(cudaGraphicsResourceGetMappedPointer(reinterpret_cast<void **>(&vboPtr_[2]), &num_bytes,
+                                                 cudaVBO_[2]));
   vboMapped_ = true;
 }
 
 void FullScreenOpenGLScene::unmapVBO() {
   if (!vboMapped_.load())
     return;
-  CUDA_CALL(cudaGraphicsUnmapResources(2, cudaVBO_, 0));
+  CUDA_CALL(cudaGraphicsUnmapResources(3, cudaVBO_, 0));
   vboMapped_ = false;
 }
 
@@ -70,7 +78,7 @@ void FullScreenOpenGLScene::update([[maybe_unused]] AppContext &ctx) {
       while (ptState_.load() == PTState::RUNNING) {
         {
           std::unique_lock lk(swapMutex_);
-          renderVBO_ = 1 - renderVBO_;
+          std::swap(renderVBO_, availableVBO_);
         }
         if (ctx.request_reset) {
           ctx.spp           = 0;
@@ -103,13 +111,15 @@ void FullScreenOpenGLScene::render(sf::RenderWindow &window) {
   glDisableClientState(GL_TEXTURE_COORD_ARRAY);
   {
     std::unique_lock lk(swapMutex_);
-    glBindBuffer(GL_ARRAY_BUFFER, glVBO_[1 - renderVBO_]);
-    glVertexPointer(2, GL_FLOAT, 12, 0);
-    glColorPointer(4, GL_UNSIGNED_BYTE, 12, reinterpret_cast<GLvoid *>(8));
-
-    glDrawArrays(GL_POINTS, 0, static_cast<int>(width * height));
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    std::swap(drawVBO_, availableVBO_);
   }
+
+  glBindBuffer(GL_ARRAY_BUFFER, glVBO_[drawVBO_]);
+  glVertexPointer(2, GL_FLOAT, 12, 0);
+  glColorPointer(4, GL_UNSIGNED_BYTE, 12, reinterpret_cast<GLvoid *>(8));
+
+  glDrawArrays(GL_POINTS, 0, static_cast<int>(width * height));
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
   window.popGLStates();
 }
 

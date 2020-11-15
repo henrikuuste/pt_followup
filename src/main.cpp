@@ -9,8 +9,8 @@
 #include "options.h"
 #include "scenes/full_screen_opengl.h"
 
-static constexpr float LIN_SPEED = 1.5f;
-static constexpr float ANG_SPEED = 0.4f;
+static constexpr float LIN_SPEED = 8.0f;
+static constexpr float ANG_SPEED = 2.0f;
 
 void handleEvents(sf::RenderWindow &window, FullScreenOpenGLScene &scene, AppContext &ctx);
 
