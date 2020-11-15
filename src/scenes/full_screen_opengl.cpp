@@ -214,8 +214,8 @@ void FullScreenOpenGLScene::resetBuffer(AppContext &ctx) {
   ctx.request_reset = true;
 }
 
-void FullScreenOpenGLScene::moveCamera(Affine const &tf, AppContext &ctx) {
+void FullScreenOpenGLScene::setCameraTf(Affine const &tf, AppContext &ctx) {
   std::unique_lock lk(sceneMutex_);
-  cam_.moveCamera(tf);
+  cam_.setCameraTf(tf);
   resetBuffer(ctx);
 }

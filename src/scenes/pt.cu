@@ -224,4 +224,4 @@ CU_D Ray Camera::castRay(Vec2 const &coord, TraceContext &ctx) const {
   return {tr.translation(), tr.linear() * d.normalized()};
 }
 
-CU_HD void Camera::moveCamera(Affine const &tf) { tr = tr * tf; }
+CU_HD void Camera::setCameraTf(Affine const &tf) { tr = tf; }

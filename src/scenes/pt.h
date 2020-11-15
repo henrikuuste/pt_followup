@@ -41,7 +41,7 @@ struct Camera {
   float w, h;
   float fov = R_PI * .5f;
   CU_D Ray castRay(Vec2 const &coord, TraceContext &ctx) const;
-  CU_HD void moveCamera(Affine const &tf);
+  CU_HD void setCameraTf(Affine const &tf);
 };
 
 struct alignas(8) Material {
