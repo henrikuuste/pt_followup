@@ -5,7 +5,7 @@
 #include <SFML/System/Clock.hpp>
 #include <SFML/Window/Event.hpp>
 
-// #include "cuda_wrapper.h"
+#include "cuda_wrapper.h"
 #include "options.h"
 #include "scenes/full_screen_opengl.h"
 
@@ -20,13 +20,13 @@ int main(int argc, const char **argv) {
 
   spdlog::info("Starting application");
 
-  // int gpuId = cuda::findBestDevice();
-  // cuda::gpuDeviceInit(gpuId);
+  int gpuId = cuda::findBestDevice();
+  cuda::gpuDeviceInit(gpuId);
 
   sf::RenderWindow window(sf::VideoMode(opt.width, opt.height), "SFML + CUDA",
                           sf::Style::Titlebar | sf::Style::Close);
   ImGui::SFML::Init(window);
-  window.setFramerateLimit(144);
+  window.setFramerateLimit(60);
   spdlog::info("SFML window created");
 
   FullScreenOpenGLScene scene(window);
@@ -90,14 +90,14 @@ void handleEvents(sf::RenderWindow &window, FullScreenOpenGLScene &scene, AppCon
   // Stupid camera controller
   Affine tf  = Affine::Identity();
   bool moved = false;
-  if (sf::Keyboard::isKeyPressed(sf::Keyboard::Up)) {
-    tf.rotate(AngAx(-ANG_SPEED, Vec3::UnitX()));
-    moved = true;
-  }
-  if (sf::Keyboard::isKeyPressed(sf::Keyboard::Down)) {
-    tf.rotate(AngAx(ANG_SPEED, Vec3::UnitX()));
-    moved = true;
-  }
+  // if (sf::Keyboard::isKeyPressed(sf::Keyboard::Up)) {
+  //   tf.rotate(AngAx(-ANG_SPEED, Vec3::UnitX()));
+  //   moved = true;
+  // }
+  // if (sf::Keyboard::isKeyPressed(sf::Keyboard::Down)) {
+  //   tf.rotate(AngAx(ANG_SPEED, Vec3::UnitX()));
+  //   moved = true;
+  // }
   if (sf::Keyboard::isKeyPressed(sf::Keyboard::Left)) {
     tf.rotate(AngAx(-ANG_SPEED, Vec3::UnitY()));
     moved = true;

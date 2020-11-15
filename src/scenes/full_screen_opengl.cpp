@@ -1,7 +1,7 @@
 #include "full_screen_opengl.h"
 
 #include <chrono>
-// #include <cuda_gl_interop.h>
+#include <cuda_gl_interop.h>
 
 using Time = std::chrono::steady_clock;
 using Fsec = std::chrono::duration<float>;
@@ -14,54 +14,74 @@ FullScreenOpenGLScene::FullScreenOpenGLScene(sf::RenderWindow const &window) {
   }
   spdlog::info("OpenGL initialized");
 
-  glGenBuffers(1, &glVBO_);
-  glBindBuffer(GL_ARRAY_BUFFER, glVBO_);
+  glGenBuffers(2, glVBO_);
 
   // initialize VBO
   width  = static_cast<unsigned int>(static_cast<float>(window.getSize().x) * 0.6f);
   height = window.getSize().y;
+
+  glBindBuffer(GL_ARRAY_BUFFER, glVBO_[0]);
+  glBufferData(GL_ARRAY_BUFFER, width * height * sizeof(Pixel), 0, GL_DYNAMIC_DRAW);
+  glBindBuffer(GL_ARRAY_BUFFER, glVBO_[1]);
   glBufferData(GL_ARRAY_BUFFER, width * height * sizeof(Pixel), 0, GL_DYNAMIC_DRAW);
   glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-  // cudaGraphicsGLRegisterBuffer(&cudaVBO_, glVBO_, cudaGraphicsMapFlagsNone);
+  cudaGraphicsGLRegisterBuffer(&cudaVBO_[0], glVBO_[0], cudaGraphicsMapFlagsNone);
+  cudaGraphicsGLRegisterBuffer(&cudaVBO_[1], glVBO_[1], cudaGraphicsMapFlagsNone);
 
   spdlog::debug("VBO created [{} {}]", width, height);
-  screenBuffer_.resize(width * height);
-  for (unsigned int row = 0; row < height; ++row) {
-    for (unsigned int col = 0; col < width; ++col) {
-      auto idx = row * width + col;
-      screenBuffer_[idx].xy << static_cast<float>(col), static_cast<float>(row);
-      screenBuffer_[idx].color << static_cast<uint8_t>(col * 255 / width),
-          static_cast<uint8_t>(row * 255 / height), 0, 255;
-    }
-  }
 
   initScene();
 }
 
 FullScreenOpenGLScene::~FullScreenOpenGLScene() {
-  runPTHandle.wait();
-  glDeleteBuffers(1, &glVBO_);
+  if (runPTHandle_.valid()) {
+    ptState_ = PTState::STOP;
+    runPTHandle_.wait();
+  }
+  CUDA_CALL(cudaDeviceSynchronize());
+  cudaGraphicsUnregisterResource(cudaVBO_[0]);
+  cudaGraphicsUnregisterResource(cudaVBO_[1]);
+  glDeleteBuffers(2, glVBO_);
+}
+
+void FullScreenOpenGLScene::mapVBO() {
+  if (vboMapped_.load())
+    return;
+  CUDA_CALL(cudaGraphicsMapResources(2, cudaVBO_, 0));
+  size_t num_bytes;
+  CUDA_CALL(cudaGraphicsResourceGetMappedPointer((void **)&vboPtr_[0], &num_bytes, cudaVBO_[0]));
+  CUDA_CALL(cudaGraphicsResourceGetMappedPointer((void **)&vboPtr_[1], &num_bytes, cudaVBO_[1]));
+  vboMapped_ = true;
+}
+
+void FullScreenOpenGLScene::unmapVBO() {
+  if (!vboMapped_.load())
+    return;
+  CUDA_CALL(cudaGraphicsUnmapResources(2, cudaVBO_, 0));
+  vboMapped_ = false;
 }
 
 void FullScreenOpenGLScene::update([[maybe_unused]] AppContext &ctx) {
-  // CUDA_CALL(cudaGraphicsMapResources(1, &cudaVBO_, 0));
-  // size_t num_bytes;
-  // CUDA_CALL(cudaGraphicsResourceGetMappedPointer((void **)&vboPtr_, &num_bytes, cudaVBO_));
-  // renderCuda();
-  // CUDA_CALL(cudaGraphicsUnmapResources(1, &cudaVBO_, 0));
-  if (not renderingPT.load()) {
-    glBindBuffer(GL_ARRAY_BUFFER, glVBO_);
-    glBufferData(GL_ARRAY_BUFFER, screenBuffer_.size() * sizeof(Pixel), screenBuffer_.data(),
-                 GL_DYNAMIC_DRAW);
-    renderingPT = true;
-    runPTHandle = std::async(std::launch::async, [&]() {
-      auto start = Time::now();
-      pt_.render(scene_, cam_, ctx, screenBuffer_);
-      auto finish         = Time::now();
-      ctx.elapsed_seconds = Fsec{finish - start}.count();
-      ctx.spp++;
-      renderingPT = false;
+  mapVBO();
+  if (ptState_.load() == PTState::IDLE) {
+    ptState_     = PTState::RUNNING;
+    runPTHandle_ = std::async(std::launch::async, [&]() {
+      while (ptState_.load() == PTState::RUNNING) {
+        {
+          std::unique_lock lk(swapMutex_);
+          renderVBO_ = 1 - renderVBO_;
+        }
+        if (ctx.request_reset) {
+          ctx.spp           = 0;
+          ctx.request_reset = false;
+        }
+        auto start = Time::now();
+        pt_.renderCuda(scene_, cam_, sceneMutex_, ctx, vboPtr_[renderVBO_]);
+        auto finish         = Time::now();
+        ctx.elapsed_seconds = Fsec{finish - start}.count();
+        ctx.spp++;
+      }
     });
   }
 }
@@ -81,20 +101,24 @@ void FullScreenOpenGLScene::render(sf::RenderWindow &window) {
   glEnableClientState(GL_VERTEX_ARRAY);
   glEnableClientState(GL_COLOR_ARRAY);
   glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-  glBindBuffer(GL_ARRAY_BUFFER, glVBO_);
-  glVertexPointer(2, GL_FLOAT, 12, 0);
-  glColorPointer(4, GL_UNSIGNED_BYTE, 12, reinterpret_cast<GLvoid *>(8));
+  {
+    std::unique_lock lk(swapMutex_);
+    glBindBuffer(GL_ARRAY_BUFFER, glVBO_[1 - renderVBO_]);
+    glVertexPointer(2, GL_FLOAT, 12, 0);
+    glColorPointer(4, GL_UNSIGNED_BYTE, 12, reinterpret_cast<GLvoid *>(8));
 
-  glDrawArrays(GL_POINTS, 0, static_cast<int>(width * height));
-  glBindBuffer(GL_ARRAY_BUFFER, 0);
-
+    glDrawArrays(GL_POINTS, 0, static_cast<int>(width * height));
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+  }
   window.popGLStates();
 }
 
 void FullScreenOpenGLScene::initScene() {
+  const float roomR = 6.f;
+
   cam_.w = static_cast<float>(width);
   cam_.h = static_cast<float>(height);
-  cam_.tr.translation() << 0.f, 0.f, 14.f;
+  cam_.tr.translation() << 0.f, -roomR + 4.f, 14.f;
   cam_.tr.rotate(AngAx(R_PI, Vec3::UnitY()));
   // cam_.tr.rotate(AngAx(R_PI * .05f, -Vec3::UnitZ()));
   cam_.fov = R_PI * 0.4f;
@@ -110,8 +134,6 @@ void FullScreenOpenGLScene::initScene() {
   Material greenRefl{{.2f, 1.f, .2f}, Vec3::Zero(), Material::SPEC};
   Material redRefl{{1.f, .2f, .2f}, Vec3::Zero(), Material::SPEC};
   // Material whiteRefl{{1.f, 1.f, 1.f}, Vec3::Zero(), Material::SPEC};
-
-  const float roomR = 4.f;
 
   scene_.objects.reserve(16);
 
@@ -156,10 +178,11 @@ void FullScreenOpenGLScene::initScene() {
 
 void FullScreenOpenGLScene::resetBuffer(AppContext &ctx) {
   pt_.reset(cam_);
-  ctx.spp = 0;
+  ctx.request_reset = true;
 }
 
 void FullScreenOpenGLScene::moveCamera(Affine const &tf, AppContext &ctx) {
+  std::unique_lock lk(sceneMutex_);
   cam_.moveCamera(tf);
   resetBuffer(ctx);
 }

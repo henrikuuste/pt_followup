@@ -5,15 +5,16 @@ add_executable(sfml_cuda
     common.h
     scenes/full_screen_opengl.cpp
     scenes/full_screen_opengl.h
-    scenes/pt.cpp
+    # scenes/pt.cpp
+    scenes/pt.cu
     scenes/pt.h
     scenes/sampler_std.h
     scenes/sampler.h
     scenes/pt_math.h)
-# target_compile_options(sfml_cuda PRIVATE                        
-#     $<$<COMPILE_LANGUAGE:CUDA>:--std=c++17 -lineinfo --expt-relaxed-constexpr>
-# )
-# set_target_properties(sfml_cuda PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+target_compile_options(sfml_cuda PRIVATE                        
+    $<$<COMPILE_LANGUAGE:CUDA>:--std=c++17 -lineinfo --expt-relaxed-constexpr>
+)
+set_target_properties(sfml_cuda PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 
 if(OpenMP_CXX_FOUND)
     target_link_libraries(sfml_cuda PUBLIC OpenMP::OpenMP_CXX)

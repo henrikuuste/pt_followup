@@ -8,13 +8,13 @@ struct Ray {
 
   int depth = 1;
 
-  Ray &operator*=(Affine const &t) {
+  CU_HD Ray &operator*=(Affine const &t) {
     origin = t * origin;
     dir    = (t.linear() * dir).normalized();
     return *this;
   }
 
-  Ray transform(Affine const &t, Quat const &rot) const {
+  CU_HD Ray transform(Affine const &t, Quat const &rot) const {
     Ray ret;
     ret.origin = t * origin;
     ret.dir    = rot * dir;
@@ -23,6 +23,6 @@ struct Ray {
   }
 };
 
-inline Ray operator*(Affine const &t, Ray const &r) {
+inline CU_HD Ray operator*(Affine const &t, Ray const &r) {
   return {t * r.origin, (t.linear() * r.dir).normalized(), r.depth};
 }

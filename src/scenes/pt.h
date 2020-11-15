@@ -1,17 +1,19 @@
 #pragma once
 
 #include "../common.h"
+#include "../cuda_memory.hpp"
 #include "pt_math.h"
 #include "sampler.h"
+#include <ciso646>
 #include <mutex>
 #include <vector>
 
 struct TraceContext {
   AppContext *app;
   Sampler *sampler;
-  float sample1D() { return sampler->get1D(); }
-  Vec2 sample2D() { return sampler->get2D(); }
-  Vec3 sample3D() { return sampler->get3D(); }
+  CU_D float sample1D() { return sampler->get1D(); }
+  CU_D Vec2 sample2D() { return sampler->get2D(); }
+  CU_D Vec3 sample3D() { return sampler->get3D(); }
 };
 
 struct MaterialSample {
@@ -27,9 +29,9 @@ struct Intersection {
   Object const *object = nullptr;
   Vec3 x;
   Vec3 n;
-  operator bool() const { return valid(); }
-  bool valid() const { return object != nullptr and distance > 0.f; }
-  bool operator<(Intersection const &other) const {
+  CU_HD operator bool() const { return valid(); }
+  CU_HD bool valid() const { return object != nullptr and distance > 0.f; }
+  CU_HD bool operator<(Intersection const &other) const {
     return valid() and (!other.valid() or distance < other.distance);
   }
 };
@@ -38,36 +40,36 @@ struct Camera {
   Affine tr = Affine::Identity();
   float w, h;
   float fov = R_PI * .5f;
-  Ray castRay(Vec2 const &coord, TraceContext &ctx) const;
-  void moveCamera(Affine const &tf);
+  CU_D Ray castRay(Vec2 const &coord, TraceContext &ctx) const;
+  CU_HD void moveCamera(Affine const &tf);
 };
 
-struct Material {
+struct alignas(8) Material {
   enum MaterialType { DIFF, SPEC };
   Radiance diffuse;
   Radiance emittance = Radiance::Zero();
   MaterialType type  = DIFF;
 
-  Radiance Le([[maybe_unused]] Intersection const &i, [[maybe_unused]] Ray const &wo) const {
+  CU_HD Radiance Le([[maybe_unused]] Intersection const &i, [[maybe_unused]] Ray const &wo) const {
     return emittance;
   }
-  MaterialSample sample(Intersection const &i, Ray const &wo, TraceContext &ctx) const;
+  CU_D MaterialSample sample(Intersection const &i, Ray const &wo, TraceContext &ctx) const;
 };
 
 struct Sphere {
   float radius = 1.f;
-  Intersection intersect(Ray const &r, Object const *obj) const;
+  CU_HD Intersection intersect(Ray const &r, Object const *obj) const;
 };
 
 struct Plane {
   Vec3 normal = Vec3::UnitY();
-  Intersection intersect(Ray const &r, Object const *obj) const;
+  CU_HD Intersection intersect(Ray const &r, Object const *obj) const;
 };
 
 struct Disc {
   Vec3 normal  = Vec3::UnitY();
   float radius = 1.f;
-  Intersection intersect(Ray const &r, Object const *obj) const;
+  CU_HD Intersection intersect(Ray const &r, Object const *obj) const;
 };
 
 enum ObjectType {
@@ -76,14 +78,14 @@ enum ObjectType {
   DISC,
 };
 
-struct Object {
+struct alignas(16) Object {
   std::string name;
   Material mat;
   ObjectType type;
-  Affine tr;
-  Affine invTr;
-  Quat rot;
-  Quat invRot;
+  alignas(16) Affine tr;
+  alignas(16) Affine invTr;
+  alignas(16) Quat rot;
+  alignas(16) Quat invRot;
   bool hasScale = false;
 
   union {
@@ -125,12 +127,12 @@ struct Object {
     }
   }
 
-  Intersection intersect(Ray const &r) const;
+  CU_HD Intersection intersect(Ray const &r) const;
 };
 
-struct Scene {
-  std::vector<Object> objects;
-  Intersection intersect(Ray const &r) const {
+struct DeviceScene {
+  cuda::raw_ptr<Object> objects;
+  CU_HD Intersection intersect(Ray const &r) const {
     Intersection ret;
     for (auto &o : objects) {
       auto test = o.intersect(r);
@@ -141,27 +143,50 @@ struct Scene {
   }
 };
 
-inline Color4 toSRGB(Radiance r, TraceContext &ctx) {
+struct Scene {
+  std::vector<Object> objects;
+  operator DeviceScene() const {
+    if (objects.size() != deviceObjects_.size())
+      deviceObjects_.allocateManaged(objects.size());
+    if (dirty_.load()) {
+      spdlog::debug("Copying scene to GPU");
+      CUDA_CALL(cudaMemcpy(deviceObjects_.get(), objects.data(), deviceObjects_.sizeBytes(),
+                           cudaMemcpyHostToDevice));
+      CUDA_CALL(cudaDeviceSynchronize());
+      dirty_ = false;
+    }
+    return {deviceObjects_};
+  }
+
+private:
+  mutable std::atomic_bool dirty_ = true;
+  mutable cuda::owning_ptr<Object> deviceObjects_;
+};
+
+CU_HD inline Color4 toSRGB(Radiance r, TraceContext &ctx) {
   r = (r * ctx.app->exposure).array().min(1.f).max(0.f).pow(1.f / ctx.app->gamma) * 255.f;
   Color4 c;
   c << r.cast<uint8_t>(), 255;
   return c;
 }
 
-inline bool shouldTerminate(Ray const &r, TraceContext &ctx) {
+CU_HD inline bool shouldTerminate(Ray const &r, TraceContext &ctx) {
   return r.depth > ctx.app->max_depth;
 }
 
-Radiance trace(Scene const &scene, Ray const &wo, TraceContext &ctx);
+CU_D Radiance trace(DeviceScene const &scene, Ray const &wo, TraceContext &ctx);
 
 struct PathTracer {
-  std::vector<Radiance> radianceBuffer;
+  cuda::owning_ptr<Radiance> radianceBuffer;
   std::mutex dataMutex;
 
   void reset(Camera const &cam) {
-    std::unique_lock lk(dataMutex);
-    radianceBuffer.clear();
-    radianceBuffer.resize(static_cast<size_t>(cam.w * cam.h), Radiance::Zero());
+    if (radianceBuffer.size() != (cam.w * cam.h)) {
+      std::unique_lock lk(dataMutex);
+      radianceBuffer.allocateManaged(cam.w * cam.h);
+    }
   }
   void render(Scene const &scene, Camera const &cam, AppContext &ctx, std::vector<Pixel> &image);
+  void renderCuda(Scene const &scene, Camera const &cam, std::mutex &sceneMutex, AppContext &ctx,
+                  cuda::raw_ptr<Pixel> image);
 };
