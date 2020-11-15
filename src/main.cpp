@@ -80,63 +80,9 @@ void handleEvents(sf::RenderWindow &window, AppContext &ctx, PlayerController &p
     ImGuiIO &io = ImGui::GetIO();
     if (!io.WantCaptureMouse) {
         // TODO mouse events
+        playerControl.handleEvent(event, window);
     }
   }
 
   playerControl.update(ctx);
-  /*
-  Affine camTf = scene.cam_.tr;
-  // Stupid camera controller
-  Affine tf  = Affine::Identity();
-  bool moved = false;
-  if (sf::Keyboard::isKeyPressed(sf::Keyboard::Up)) {
-    tf.rotate(AngAx(-ANG_SPEED * ctx.dtime, Vec3::UnitX()));
-    moved = true;
-  }
-  if (sf::Keyboard::isKeyPressed(sf::Keyboard::Down)) {
-    tf.rotate(AngAx(ANG_SPEED * ctx.dtime, Vec3::UnitX()));
-    moved = true;
-  }
-  if (sf::Keyboard::isKeyPressed(sf::Keyboard::Left)) {
-    tf.rotate(AngAx(-ANG_SPEED * ctx.dtime, camTf.inverse().linear() * Vec3::UnitY()));
-    moved = true;
-  }
-  if (sf::Keyboard::isKeyPressed(sf::Keyboard::Right)) {
-    tf.rotate(AngAx(ANG_SPEED * ctx.dtime, camTf.inverse().linear() * Vec3::UnitY()));
-    moved = true;
-  }
-
-  camTf.rotate(tf.linear());
-  tf = Affine::Identity();
-
-  if (sf::Keyboard::isKeyPressed(sf::Keyboard::A)) {
-    tf.translate(camTf.linear() * Vec3(-LIN_SPEED * ctx.dtime, 0, 0));
-    moved = true;
-  }
-  if (sf::Keyboard::isKeyPressed(sf::Keyboard::D)) {
-    tf.translate(camTf.linear() * Vec3(LIN_SPEED * ctx.dtime, 0, 0));
-    moved = true;
-  }
-  if (sf::Keyboard::isKeyPressed(sf::Keyboard::W)) {
-    tf.translate(camTf.linear() * Vec3(0, 0, LIN_SPEED * ctx.dtime));
-    moved = true;
-  }
-  if (sf::Keyboard::isKeyPressed(sf::Keyboard::S)) {
-    tf.translate(camTf.linear() * Vec3(0, 0, -LIN_SPEED * ctx.dtime));
-    moved = true;
-  }
-  if (sf::Keyboard::isKeyPressed(sf::Keyboard::LShift)) {
-    tf.translate(Vec3(0, LIN_SPEED * ctx.dtime, 0));
-    moved = true;
-  }
-  if (sf::Keyboard::isKeyPressed(sf::Keyboard::LControl)) {
-    tf.translate(Vec3(0, -LIN_SPEED * ctx.dtime, 0));
-    moved = true;
-  }
-  camTf.translate(tf.translation()); 
-
-  if (moved) {
-    scene.setCameraTf(camTf, ctx);
-  }
-  */
 }

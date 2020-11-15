@@ -5,12 +5,15 @@
 
 #include <SFML/Window/Event.hpp>
 #include <fmt/ostream.h>
+#include <optional>
+#include <SFML/Graphics/RenderWindow.hpp>
 
 class PlayerController {
   FullScreenOpenGLScene *scene_;
 
   static constexpr float maxWalkSpeed = 10.f;
   static constexpr float maxLookSpeed = 2.f;
+  static constexpr float mouseLookFactor = 0.2f;
 
   Vec3 walkSpeed_ = {0.f, 0.f, 0.f};
   Vec3 lookSpeed_ = {0.f, 0.f, 0.f};
@@ -19,6 +22,9 @@ class PlayerController {
   Quat look_;
   Quat yaw_;
   Quat pitch_;
+
+  Vec2 prevMousePos_ = {0, 0};
+  bool mouseLook_ = false;
 
 public:
   PlayerController(FullScreenOpenGLScene &scene) : scene_(&scene) { reset(); }
@@ -37,13 +43,19 @@ public:
     pos_.y() = 0.f;
   }
 
-  void handleEvent(sf::Event const &event) {
-    // TODO
+  void handleEvent(sf::Event const &event, sf::RenderWindow &window) {
+    if(event.type == sf::Event::KeyReleased) {
+      if(event.key.code == sf::Keyboard::Key::LAlt) {
+        prevMousePos_ << sf::Mouse::getPosition().x, sf::Mouse::getPosition().y;
+        window.setMouseCursorVisible(mouseLook_);
+        mouseLook_ = !mouseLook_;
+        
+        spdlog::info("Alt toggled {}", prevMousePos_.transpose());
+      }
+    }
   }
 
   void update(AppContext &ctx) {
-    walkSpeed_ << 0, 0, 0;
-    lookSpeed_ << 0, 0, 0;
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::A)) {
       walkSpeed_.x() = maxWalkSpeed;
     }
@@ -57,6 +69,14 @@ public:
       walkSpeed_.z() = -maxWalkSpeed;
     }
 
+    if(mouseLook_) {
+      Vec2 mPos{sf::Mouse::getPosition().x, sf::Mouse::getPosition().y};
+      Vec2 dPos = prevMousePos_ - mPos;
+      spdlog::info("Mouse moved {}", dPos.transpose());
+      sf::Mouse::setPosition(sf::Vector2i{static_cast<int>(prevMousePos_[0]), static_cast<int>(prevMousePos_[1])});
+      lookSpeed_.y() = dPos.x() * -mouseLookFactor;
+      lookSpeed_.x() = dPos.y() * -mouseLookFactor;
+    } else {
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::Up)) {
       lookSpeed_.x() = -maxLookSpeed;
     }
@@ -68,6 +88,7 @@ public:
     }
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::Right)) {
       lookSpeed_.y() = maxLookSpeed;
+    }
     }
 
     Vec3 dLookEuler{lookSpeed_.x() * ctx.dtime, lookSpeed_.y() * ctx.dtime, 0};
@@ -88,5 +109,7 @@ public:
       tf.translation() << pos_ + Vec3::UnitY() * height_;
       scene_->setCameraTf(tf, ctx);
     }
+    walkSpeed_ << 0, 0, 0;
+    lookSpeed_ << 0, 0, 0;
   }
 };
