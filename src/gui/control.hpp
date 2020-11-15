@@ -1,3 +1,4 @@
+#pragma once
 #include "../common.h"
 #include "../scenes/full_screen_opengl.h"
 
