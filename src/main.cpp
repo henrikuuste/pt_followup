@@ -10,11 +10,12 @@
 #include "scenes/full_screen_opengl.h"
 #include "gui/stats.hpp"
 #include "gui/control.hpp"
+#include "gui/playerController.hpp"
 
 static constexpr float LIN_SPEED = 8.0f;
 static constexpr float ANG_SPEED = 2.0f;
 
-void handleEvents(sf::RenderWindow &window, FullScreenOpenGLScene &scene, AppContext &ctx);
+void handleEvents(sf::RenderWindow &window, AppContext &ctx, PlayerController &playerControl);
 
 int main(int argc, const char **argv) {
   Options opt({std::next(argv), std::next(argv, argc)});
@@ -34,12 +35,14 @@ int main(int argc, const char **argv) {
   FullScreenOpenGLScene scene(window);
   StatsGUI statsGUI;
   ControlGUI controlGUI(scene);
+  PlayerController playerControl(scene);
 
   AppContext ctx;
   sf::Clock deltaClock;
 
   scene.run(ctx);
   while (window.isOpen()) {
+    ctx.dtime = deltaClock.getElapsedTime().asSeconds();
     ImGui::SFML::Update(window, deltaClock.restart());
 
     statsGUI.draw(ctx);
@@ -50,8 +53,7 @@ int main(int argc, const char **argv) {
     ImGui::SFML::Render(window);
     window.display();
 
-    handleEvents(window, scene, ctx);
-    ctx.dtime = deltaClock.getElapsedTime().asSeconds();
+    handleEvents(window, ctx, playerControl);
   }
 
   spdlog::info("Shutting down");
@@ -60,7 +62,7 @@ int main(int argc, const char **argv) {
   return 0;
 }
 
-void handleEvents(sf::RenderWindow &window, FullScreenOpenGLScene &scene, AppContext &ctx) {
+void handleEvents(sf::RenderWindow &window, AppContext &ctx, PlayerController &playerControl) {
   sf::Event event{};
   while (window.pollEvent(event)) {
     ImGui::SFML::ProcessEvent(event);
@@ -74,58 +76,13 @@ void handleEvents(sf::RenderWindow &window, FullScreenOpenGLScene &scene, AppCon
         window.close();
       }
     }
-  }
-  Affine camTf = scene.cam_.tr;
-  // Stupid camera controller
-  Affine tf  = Affine::Identity();
-  bool moved = false;
-  if (sf::Keyboard::isKeyPressed(sf::Keyboard::Up)) {
-    tf.rotate(AngAx(-ANG_SPEED * ctx.dtime, Vec3::UnitX()));
-    moved = true;
-  }
-  if (sf::Keyboard::isKeyPressed(sf::Keyboard::Down)) {
-    tf.rotate(AngAx(ANG_SPEED * ctx.dtime, Vec3::UnitX()));
-    moved = true;
-  }
-  if (sf::Keyboard::isKeyPressed(sf::Keyboard::Left)) {
-    tf.rotate(AngAx(-ANG_SPEED * ctx.dtime, camTf.inverse().linear() * Vec3::UnitY()));
-    moved = true;
-  }
-  if (sf::Keyboard::isKeyPressed(sf::Keyboard::Right)) {
-    tf.rotate(AngAx(ANG_SPEED * ctx.dtime, camTf.inverse().linear() * Vec3::UnitY()));
-    moved = true;
+
+    ImGuiIO &io = ImGui::GetIO();
+    if (!io.WantCaptureMouse) {
+        // TODO mouse events
+        playerControl.handleEvent(event, window);
+    }
   }
 
-  camTf.rotate(tf.linear());
-  tf = Affine::Identity();
-
-  if (sf::Keyboard::isKeyPressed(sf::Keyboard::A)) {
-    tf.translate(camTf.linear() * Vec3(-LIN_SPEED * ctx.dtime, 0, 0));
-    moved = true;
-  }
-  if (sf::Keyboard::isKeyPressed(sf::Keyboard::D)) {
-    tf.translate(camTf.linear() * Vec3(LIN_SPEED * ctx.dtime, 0, 0));
-    moved = true;
-  }
-  if (sf::Keyboard::isKeyPressed(sf::Keyboard::W)) {
-    tf.translate(camTf.linear() * Vec3(0, 0, LIN_SPEED * ctx.dtime));
-    moved = true;
-  }
-  if (sf::Keyboard::isKeyPressed(sf::Keyboard::S)) {
-    tf.translate(camTf.linear() * Vec3(0, 0, -LIN_SPEED * ctx.dtime));
-    moved = true;
-  }
-  if (sf::Keyboard::isKeyPressed(sf::Keyboard::LShift)) {
-    tf.translate(Vec3(0, LIN_SPEED * ctx.dtime, 0));
-    moved = true;
-  }
-  if (sf::Keyboard::isKeyPressed(sf::Keyboard::LControl)) {
-    tf.translate(Vec3(0, -LIN_SPEED * ctx.dtime, 0));
-    moved = true;
-  }
-  camTf.translate(tf.translation());
-
-  if (moved) {
-    scene.setCameraTf(camTf, ctx);
-  }
+  playerControl.update(ctx);
 }
