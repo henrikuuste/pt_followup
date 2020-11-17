@@ -19,6 +19,10 @@ public:
         scene_->resetBuffer(ctx);
       }
     }
+    if (ImGui::Checkbox("NEE", &ctx.enable_NEE)) {
+      scene_->resetBuffer(ctx);
+    }
+
     ImGuiTreeNodeFlags leafFlags =
         ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen | ImGuiTreeNodeFlags_Bullet;
     {

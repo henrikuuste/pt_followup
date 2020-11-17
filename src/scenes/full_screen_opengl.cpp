@@ -172,9 +172,9 @@ void FullScreenOpenGLScene::initScene() {
 
   Affine tr = Affine::Identity();
 
-  tr.translation() << 0.f, -roomR + 1.f, -0.5f;
-  tr.scale(1.f);
-  scene_.objects.push_back({"light sphere", Sphere{1.f}, whiteLight, tr});
+  // tr.translation() << 0.f, -roomR + 1.f, -0.5f;
+  // tr.scale(1.f);
+  // scene_.objects.push_back({"light sphere", Sphere{1.f}, whiteLight, tr});
   tr.setIdentity();
   tr.translation() << 2.f, -roomR + 2.f, -2.f;
   scene_.objects.push_back({"green reflective sphere", Sphere{2.f}, greenRefl, tr});
@@ -202,9 +202,18 @@ void FullScreenOpenGLScene::initScene() {
   tr.translation() << Vec3::UnitZ() * roomR * 4;
   scene_.objects.push_back({"Z+ wall", Plane{-Vec3::UnitZ()}, blue, tr});
 
+  // tr.translation() << 0, roomR * 0.99f, 2.f;
+  // tr.scale(Vec3{1.f, 1.f, roomR * 0.8f});
+  // scene_.objects.push_back({"ceiling light", Disc{-Vec3::UnitY(), 2.f}, yellowLight, tr});
+  tr.setIdentity();
   tr.translation() << 0, roomR * 0.99f, 2.f;
-  tr.scale(Vec3{1.f, 1.f, roomR * 0.8f});
-  scene_.objects.push_back({"ceiling light", Disc{-Vec3::UnitY(), 2.f}, yellowLight, tr});
+  scene_.objects.push_back({"light sphere", Sphere{0.5f}, whiteLight, tr});
+  // tr.setIdentity();
+  // tr.translation() << -roomR + 3, roomR * 0.99f, 2.f;
+  // scene_.objects.push_back({"light sphere", Sphere{0.5f}, whiteLight, tr});
+  // tr.setIdentity();
+  // tr.translation() << roomR - 3, roomR * 0.99f, 2.f;
+  // scene_.objects.push_back({"light sphere", Sphere{0.5f}, whiteLight, tr});
 
   pt_.reset(cam_);
 }
