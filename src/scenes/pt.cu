@@ -68,9 +68,10 @@ void PathTracer::renderCuda(Scene const &scene, Camera const &cam, std::mutex &s
  **********************************/
 
 CU_D Radiance trace(DeviceScene const &scene, Ray const &primary, TraceContext &ctx) {
-  Radiance Lo          = Radiance::Zero();
-  Ray wo               = primary;
-  Radiance attenuation = Radiance::Ones();
+  Radiance Lo                         = Radiance::Zero();
+  Ray wo                              = primary;
+  Radiance attenuation                = Radiance::Ones();
+  Material::MaterialType lastMaterial = Material::SPEC; // Init as SPEC for Le at depth==0
 
   for (size_t depth = 0; depth < ctx.app->max_depth; ++depth) {
     auto hit = scene.intersect(wo);
@@ -93,7 +94,7 @@ CU_D Radiance trace(DeviceScene const &scene, Ray const &primary, TraceContext &
       }
     }
 
-    if (depth == 0 || !(ctx.app->enable_NEE)) {
+    if (lastMaterial == Material::SPEC || !(ctx.app->enable_NEE)) {
       Lo += attenuation.cwiseProduct(hit.object->mat.Le(hit, wo));
     }
     auto ms = hit.object->mat.sample(hit, wo, ctx);
@@ -102,8 +103,9 @@ CU_D Radiance trace(DeviceScene const &scene, Ray const &primary, TraceContext &
       Lo += attenuation.cwiseProduct(ms.fr.cwiseProduct(sampleLights(hit, scene, ctx)));
     }
 
-    attenuation = attenuation.cwiseProduct(ms.fr * ms.wi.dir.dot(hit.n) / ms.pdf);
-    wo          = ms.wi;
+    attenuation  = attenuation.cwiseProduct(ms.fr * ms.wi.dir.dot(hit.n) / ms.pdf);
+    wo           = ms.wi;
+    lastMaterial = hit.object->mat.type;
   }
 
   return Lo;
