@@ -94,10 +94,12 @@ CU_D Radiance trace(DeviceScene const &scene, Ray const &primary, TraceContext &
     }
 
     Lo += attenuation.cwiseProduct(hit.object->mat.Le(hit, wo));
+    auto ms = hit.object->mat.sample(hit, wo, ctx);
+
     if (ctx.app->enable_NEE) {
-      Lo += attenuation.cwiseProduct(sampleLights(hit, scene, ctx));
+      Lo += attenuation.cwiseProduct(ms.fr.cwiseProduct(sampleLights(hit, scene, ctx)));
     }
-    auto ms     = hit.object->mat.sample(hit, wo, ctx);
+
     attenuation = attenuation.cwiseProduct(ms.fr * ms.wi.dir.dot(hit.n) / ms.pdf);
     wo          = ms.wi;
   }
@@ -110,12 +112,17 @@ CU_D Radiance sampleLights(Intersection const &hit, DeviceScene const &scene, Tr
   for (auto &o : scene.objects) {
 
     Radiance Le = o.mat.emittance;
-    if (Le.isZero(0) || &o != hit.object) {
+    if (Le.isZero(0) || &o == hit.object) {
       continue;
     }
     if (o.type != SPHERE) {
       continue;
     }
+
+    if (hit.object->mat.type == Material::SPEC) {
+      continue;
+    }
+
     float lightSourceRadius = o.sphere.radius;
 
     Vec3 randomHemiSpherePoint =
@@ -123,23 +130,16 @@ CU_D Radiance sampleLights(Intersection const &hit, DeviceScene const &scene, Tr
     if (randomHemiSpherePoint.dot(hit.x - o.tr.translation()) < 0) {
       randomHemiSpherePoint = -randomHemiSpherePoint;
     }
-
     randomHemiSpherePoint = o.tr.translation() + randomHemiSpherePoint;
-    Vec3 direction        = (randomHemiSpherePoint - hit.x).normalized();
-    // float cos_term        = hit.n.dot(direction);
-    float cos_term = 1;
-    Ray ray_to_light{hit.x, direction, 1};
-    Intersection lightIntersect = scene.intersect(ray_to_light);
-    radiance += Radiance{1.f, 1.f, 1.f} * 10;
 
-    if (lightIntersect.object != hit.object) {
-      // radiance += Radiance{0.f, 0.f, 1.f};
+    Vec3 direction = (randomHemiSpherePoint - hit.x).normalized();
+    Ray obj2light{hit.x + hit.n * EPSILON, direction, 1};
+    Intersection lightIntersect = scene.intersect(obj2light);
+    if (lightIntersect.object != &o) {
       continue; // occlusion
     }
 
-    float solidangle = EIGEN_PI * lightSourceRadius * lightSourceRadius / lightIntersect.distance;
-
-    // radiance += Le.cwiseProduct((hit.object->mat.diffuse / EIGEN_PI) * cos_term * solidangle);
+    radiance += Le;
   }
   return radiance;
 }
