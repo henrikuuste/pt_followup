@@ -93,7 +93,9 @@ CU_D Radiance trace(DeviceScene const &scene, Ray const &primary, TraceContext &
       }
     }
 
-    Lo += attenuation.cwiseProduct(hit.object->mat.Le(hit, wo));
+    if (depth == 0 || !(ctx.app->enable_NEE)) {
+      Lo += attenuation.cwiseProduct(hit.object->mat.Le(hit, wo));
+    }
     auto ms = hit.object->mat.sample(hit, wo, ctx);
 
     if (ctx.app->enable_NEE) {
@@ -138,8 +140,9 @@ CU_D Radiance sampleLights(Intersection const &hit, DeviceScene const &scene, Tr
     if (lightIntersect.object != &o) {
       continue; // occlusion
     }
+    float solidAngle = lightSourceRadius * lightSourceRadius / (lightIntersect.distance);
 
-    radiance += Le;
+    radiance += Le * hit.n.dot(direction) * solidAngle;
   }
   return radiance;
 }
