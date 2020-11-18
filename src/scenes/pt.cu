@@ -242,7 +242,7 @@ CU_D Vec3 Sphere::uniformSampling(Vec3 const &dir, TraceContext &ctx,
   Vec3 randomPoint = {r * cos(theta), 0, r * sin(theta)};
 
   Vec3 rotAxis   = dir.cross(Vec3::UnitY());
-  float angle    = asin(dir.dot(Vec3::UnitY()));
+  float angle    = asin(rotAxis.norm() / dir.dot(Vec3::UnitY()));
   Quat rot       = Quat{AngAx(angle, rotAxis.normalized())};
   randomPoint    = rot * randomPoint;
   Vec3 direction = (dir + randomPoint).normalized();
