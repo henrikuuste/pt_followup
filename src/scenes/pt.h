@@ -59,17 +59,21 @@ struct alignas(8) Material {
 struct Sphere {
   float radius = 1.f;
   CU_HD Intersection intersect(Ray const &r, Object const *obj) const;
+  CU_D Vec3 uniformSampling(Vec3 const &dir, TraceContext &ctx, Object const *obj) const;
+  // CU_HD float lightPdf();
 };
 
 struct Plane {
   Vec3 normal = Vec3::UnitY();
   CU_HD Intersection intersect(Ray const &r, Object const *obj) const;
+  CU_D Vec3 uniformSampling(Vec3 const &dir, TraceContext &ctx, Object const *obj) const;
 };
 
 struct Disc {
   Vec3 normal  = Vec3::UnitY();
   float radius = 1.f;
   CU_HD Intersection intersect(Ray const &r, Object const *obj) const;
+  CU_D Vec3 uniformSampling(Vec3 const &dir, TraceContext &ctx, Object const *obj) const;
 };
 
 enum ObjectType {
@@ -128,6 +132,7 @@ struct alignas(16) Object {
   }
 
   CU_HD Intersection intersect(Ray const &r) const;
+  CU_D Vec3 uniformSampling(Vec3 const &dir, TraceContext &ctx) const;
 };
 
 struct DeviceScene {

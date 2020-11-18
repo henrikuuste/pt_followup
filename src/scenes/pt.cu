@@ -127,22 +127,15 @@ CU_D Radiance sampleLights(Intersection const &hit, DeviceScene const &scene, Tr
       continue;
     }
 
-    float lightSourceRadius = o.sphere.radius;
+    Vec3 direction = o.uniformSampling(o.tr.translation() - hit.x, ctx);
 
-    Vec3 randomHemiSpherePoint =
-        lightSourceRadius * (ctx.sample3D() * 2.f - Vec3::Ones()).normalized();
-    if (randomHemiSpherePoint.dot(hit.x - o.tr.translation()) < 0) {
-      randomHemiSpherePoint = -randomHemiSpherePoint;
-    }
-    randomHemiSpherePoint = o.tr.translation() + randomHemiSpherePoint;
-
-    Vec3 direction = (randomHemiSpherePoint - hit.x).normalized();
     Ray obj2light{hit.x + hit.n * EPSILON, direction, 1};
     Intersection lightIntersect = scene.intersect(obj2light);
     if (lightIntersect.object != &o) {
       continue; // occlusion
     }
-    float solidAngle = lightSourceRadius * lightSourceRadius / (lightIntersect.distance);
+    float lightAngle = atan(o.sphere.radius / lightIntersect.distance);
+    float solidAngle = R_PI * lightAngle * lightAngle;
 
     radiance += Le * hit.n.dot(direction) * solidAngle;
   }
@@ -230,6 +223,40 @@ CU_HD Intersection Disc::intersect(Ray const &r, Object const *obj) const {
   return {t, obj, x, normal};
 }
 
+CU_D Vec3 Object::uniformSampling(Vec3 const &dir, TraceContext &ctx) const {
+  Vec3 sampledPoint;
+  if (type == SPHERE) {
+    sampledPoint = sphere.uniformSampling(dir, ctx, this);
+  } else if (type == PLANE) {
+    sampledPoint = plane.uniformSampling(dir, ctx, this);
+  } else if (type == DISC) {
+    sampledPoint = disc.uniformSampling(dir, ctx, this);
+  }
+  return sampledPoint;
+}
+
+CU_D Vec3 Sphere::uniformSampling(Vec3 const &dir, TraceContext &ctx,
+                                  [[maybe_unused]] Object const *obj) const {
+  float r          = radius * sqrt(ctx.sample1D());
+  float theta      = ctx.sample1D() * 2 * R_PI;
+  Vec3 randomPoint = {r * cos(theta), 0, r * sin(theta)};
+
+  Vec3 rotAxis   = dir.cross(Vec3::UnitY());
+  float angle    = asin(dir.dot(Vec3::UnitY()));
+  Quat rot       = Quat{AngAx(angle, rotAxis.normalized())};
+  randomPoint    = rot * randomPoint;
+  Vec3 direction = (dir + randomPoint).normalized();
+
+  return direction;
+}
+CU_D Vec3 Plane::uniformSampling(Vec3 const &dir, TraceContext &ctx, Object const *obj) const {
+  // TODO
+  return Vec3::UnitX();
+}
+CU_D Vec3 Disc::uniformSampling(Vec3 const &dir, TraceContext &ctx, Object const *obj) const {
+  // TODO
+  return Vec3::UnitX();
+}
 /**********************************
  * BSDF
  **********************************/
