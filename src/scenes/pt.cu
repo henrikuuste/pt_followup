@@ -100,7 +100,7 @@ CU_D Radiance trace(DeviceScene const &scene, Ray const &primary, TraceContext &
     auto ms = hit.object->mat.sample(hit, wo, ctx);
 
     if (ctx.app->enable_NEE) {
-      Lo += attenuation.cwiseProduct(ms.fr.cwiseProduct(sampleLights(hit, scene, ctx)));
+      Lo += attenuation.cwiseProduct(sampleLights(hit, scene, ctx, ms));
     }
 
     attenuation  = attenuation.cwiseProduct(ms.fr * ms.wi.dir.dot(hit.n) / ms.pdf);
@@ -111,7 +111,8 @@ CU_D Radiance trace(DeviceScene const &scene, Ray const &primary, TraceContext &
   return Lo;
 }
 
-CU_D Radiance sampleLights(Intersection const &hit, DeviceScene const &scene, TraceContext &ctx) {
+CU_D Radiance sampleLights(Intersection const &hit, DeviceScene const &scene, TraceContext &ctx,
+                           MaterialSample &ms) {
   Radiance radiance{0.0f, 0.0f, 0.0f};
   for (auto &o : scene.objects) {
 
@@ -139,7 +140,7 @@ CU_D Radiance sampleLights(Intersection const &hit, DeviceScene const &scene, Tr
 
     radiance += Le * hit.n.dot(direction) * solidAngle;
   }
-  return radiance;
+  return ms.fr.cwiseProduct(radiance);
 }
 
 /**********************************
@@ -237,15 +238,28 @@ CU_D Vec3 Object::uniformSampling(Vec3 const &dir, TraceContext &ctx) const {
 
 CU_D Vec3 Sphere::uniformSampling(Vec3 const &dir, TraceContext &ctx,
                                   [[maybe_unused]] Object const *obj) const {
-  float r          = radius * sqrt(ctx.sample1D());
-  float theta      = ctx.sample1D() * 2 * R_PI;
-  Vec3 randomPoint = {r * cos(theta), 0, r * sin(theta)};
+  float r     = sqrt(ctx.sample1D());
+  float theta = ctx.sample1D() * 2 * R_PI;
+  Vec3 p      = {r * cos(theta), 0, r * sin(theta)};
+  p           = {p.x(), sqrt(fmaxf(0.0f, 1.0 - p.x() * p.x() - p.z() * p.z())), p.z()};
+  p           = radius * p;
+  Vec3 normal = dir.normalized();
+  Vec3 binormal;
+  if (fabs(normal.x()) > fabs(normal.z())) {
+    binormal.x() = -normal.y();
+    binormal.y() = normal.x();
+    binormal.z() = 0;
+  } else {
+    binormal.x() = 0;
+    binormal.y() = -normal.z();
+    binormal.z() = normal.y();
+  }
+  binormal     = binormal.normalized();
+  Vec3 tangent = binormal.cross(normal).normalized();
 
-  Vec3 rotAxis   = dir.cross(Vec3::UnitY());
-  float angle    = asin(rotAxis.norm() / dir.dot(Vec3::UnitY()));
-  Quat rot       = Quat{AngAx(angle, rotAxis.normalized())};
-  randomPoint    = rot * randomPoint;
-  Vec3 direction = (dir + randomPoint).normalized();
+  p = p.x() * tangent + p.y() * normal + p.z() * binormal;
+
+  Vec3 direction = (dir + p).normalized();
 
   return direction;
 }

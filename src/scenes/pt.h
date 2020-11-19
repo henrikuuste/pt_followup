@@ -178,7 +178,8 @@ CU_HD inline bool shouldTerminate(Ray const &r, TraceContext &ctx) {
   return r.depth > ctx.app->max_depth;
 }
 
-CU_D Radiance sampleLights(Intersection const &hit, DeviceScene const &scene, TraceContext &ctx);
+CU_D Radiance sampleLights(Intersection const &hit, DeviceScene const &scene, TraceContext &ctx,
+                           MaterialSample &ms);
 CU_D Radiance trace(DeviceScene const &scene, Ray const &wo, TraceContext &ctx);
 
 struct PathTracer {
