@@ -238,27 +238,8 @@ CU_D Vec3 Object::uniformSampling(Vec3 const &dir, TraceContext &ctx) const {
 
 CU_D Vec3 Sphere::uniformSampling(Vec3 const &dir, TraceContext &ctx,
                                   [[maybe_unused]] Object const *obj) const {
-  float r     = sqrt(ctx.sample1D());
-  float theta = ctx.sample1D() * 2 * R_PI;
-  Vec3 p      = {r * cos(theta), 0, r * sin(theta)};
-  p           = {p.x(), sqrt(fmaxf(0.0f, 1.0 - p.x() * p.x() - p.z() * p.z())), p.z()};
-  p           = radius * p;
-  Vec3 normal = dir.normalized();
-  Vec3 binormal;
-  if (fabs(normal.x()) > fabs(normal.z())) {
-    binormal.x() = -normal.y();
-    binormal.y() = normal.x();
-    binormal.z() = 0;
-  } else {
-    binormal.x() = 0;
-    binormal.y() = -normal.z();
-    binormal.z() = normal.y();
-  }
-  binormal     = binormal.normalized();
-  Vec3 tangent = binormal.cross(normal).normalized();
-
-  p = p.x() * tangent + p.y() * normal + p.z() * binormal;
-
+  Vec3 p         = uniformHemisphereSampling(ctx, dir);
+  p              = radius * p;
   Vec3 direction = (dir + p).normalized();
 
   return direction;
@@ -274,6 +255,29 @@ CU_D Vec3 Disc::uniformSampling(Vec3 const &dir, TraceContext &ctx, Object const
 /**********************************
  * BSDF
  **********************************/
+CU_D Vec3 uniformHemisphereSampling(TraceContext &ctx, Vec3 const &dir) {
+  float r     = sqrt(ctx.sample1D());
+  float theta = ctx.sample1D() * 2 * R_PI;
+  Vec3 p      = {r * cos(theta), 0, r * sin(theta)};
+  p           = {p.x(), sqrt(fmaxf(0.0f, 1.0 - p.x() * p.x() - p.z() * p.z())), p.z()};
+
+  Vec3 normal = dir.normalized();
+  Vec3 binormal;
+  if (fabs(normal.x()) > fabs(normal.z())) {
+    binormal.x() = -normal.y();
+    binormal.y() = normal.x();
+    binormal.z() = 0;
+  } else {
+    binormal.x() = 0;
+    binormal.y() = -normal.z();
+    binormal.z() = normal.y();
+  }
+  binormal     = binormal.normalized();
+  Vec3 tangent = binormal.cross(normal).normalized();
+
+  p = p.x() * tangent + p.y() * normal + p.z() * binormal;
+  return p;
+}
 
 CU_D MaterialSample Material::sample(Intersection const &i, Ray const &wo,
                                      TraceContext &ctx) const {
@@ -281,10 +285,7 @@ CU_D MaterialSample Material::sample(Intersection const &i, Ray const &wo,
 
   if (type == DIFF) {
     ms.fr  = diffuse / R_PI;
-    Vec3 d = (ctx.sample3D() * 2.f - Vec3::Ones()).normalized();
-    if (d.dot(i.n) < 0) {
-      d = -d;
-    }
+    Vec3 d = uniformHemisphereSampling(ctx, i.n);
     ms.wi  = {i.x + i.n * EPSILON, d, wo.depth + 1};
     ms.pdf = 1.f / R_2PI;
   } else if (type == SPEC) {
@@ -292,8 +293,6 @@ CU_D MaterialSample Material::sample(Intersection const &i, Ray const &wo,
     ms.wi  = {i.x, wo.dir - i.n * 2 * i.n.dot(wo.dir), wo.depth + 1};
     ms.pdf = ms.wi.dir.dot(i.n);
   } else {
-    // spdlog::error("Not implemented");
-    // abort();
     asm("exit;");
   }
   return ms;

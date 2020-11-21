@@ -181,6 +181,7 @@ CU_HD inline bool shouldTerminate(Ray const &r, TraceContext &ctx) {
 CU_D Radiance sampleLights(Intersection const &hit, DeviceScene const &scene, TraceContext &ctx,
                            MaterialSample &ms);
 CU_D Radiance trace(DeviceScene const &scene, Ray const &wo, TraceContext &ctx);
+CU_D Vec3 uniformHemisphereSampling(TraceContext &ctx, Vec3 const &dir);
 
 struct PathTracer {
   cuda::owning_ptr<Radiance> radianceBuffer;
