@@ -123,22 +123,23 @@ CU_D Radiance sampleLights(Intersection const &hit, DeviceScene const &scene, Tr
     if (o.type != SPHERE) {
       continue;
     }
-
     if (hit.object->mat.type == Material::SPEC) {
       continue;
     }
 
-    Vec3 direction = o.uniformSampling(o.tr.translation() - hit.x, ctx);
+    // auto ls = o.sample(hit.x, ctx);
+    // if (ls.pdf < EPSILON)
+    //   continue;
 
-    Ray obj2light{hit.x + hit.n * EPSILON, direction, 1};
+    auto ls   = o.sample(hit.x, ctx);
+    Vec3 diff = ls.p - hit.x;
+    Ray obj2light{hit.x + hit.n * EPSILON, diff.normalized(), 1};
     Intersection lightIntersect = scene.intersect(obj2light);
     if (lightIntersect.object != &o) {
       continue; // occlusion
     }
-    float lightAngle = atan(o.sphere.radius / lightIntersect.distance);
-    float solidAngle = R_PI * lightAngle * lightAngle;
 
-    radiance += Le * hit.n.dot(direction) * solidAngle;
+    radiance += Le * hit.n.dot(diff.normalized()) / ls.pdf;
   }
   return ms.fr.cwiseProduct(radiance);
 }
@@ -224,34 +225,39 @@ CU_HD Intersection Disc::intersect(Ray const &r, Object const *obj) const {
   return {t, obj, x, normal};
 }
 
-CU_D Vec3 Object::uniformSampling(Vec3 const &dir, TraceContext &ctx) const {
-  Vec3 sampledPoint;
+CU_D ObjectSample Object::sample(Vec3 const &dir, TraceContext &ctx) const {
+  ObjectSample sample;
   if (type == SPHERE) {
-    sampledPoint = sphere.uniformSampling(dir, ctx, this);
+    sample = sphere.sample(dir, ctx, this);
   } else if (type == PLANE) {
-    sampledPoint = plane.uniformSampling(dir, ctx, this);
+    sample = plane.sample(dir, ctx, this);
   } else if (type == DISC) {
-    sampledPoint = disc.uniformSampling(dir, ctx, this);
+    sample = disc.sample(dir, ctx, this);
   }
-  return sampledPoint;
+  return sample;
 }
 
-CU_D Vec3 Sphere::uniformSampling(Vec3 const &dir, TraceContext &ctx,
-                                  [[maybe_unused]] Object const *obj) const {
-  Vec3 p         = uniformHemisphereSampling(ctx);
-  p              = onb(p, dir);
-  p              = radius * p;
-  Vec3 direction = (dir + p).normalized();
+CU_D ObjectSample Sphere::sample(Vec3 const &hitx, TraceContext &ctx,
+                                 [[maybe_unused]] Object const *obj) const {
+  Vec3 p = uniformHemisphereSampling(ctx);
+  p      = onb(p, obj->tr.translation() - hitx);
+  Vec3 n = p.normalized();
+  p      = radius * p + obj->tr.translation();
 
-  return direction;
+  float lightAngle = atan(radius / (p - hitx).norm());
+  float solidAngle = R_PI * lightAngle * lightAngle;
+
+  return {1 / solidAngle, p, n};
 }
-CU_D Vec3 Plane::uniformSampling(Vec3 const &dir, TraceContext &ctx, Object const *obj) const {
+CU_D ObjectSample Plane::sample(Vec3 const &dir, TraceContext &ctx,
+                                [[maybe_unused]] Object const *obj) const {
   // TODO
-  return Vec3::UnitX();
+  return {};
 }
-CU_D Vec3 Disc::uniformSampling(Vec3 const &dir, TraceContext &ctx, Object const *obj) const {
+CU_D ObjectSample Disc::sample(Vec3 const &dir, TraceContext &ctx,
+                               [[maybe_unused]] Object const *obj) const {
   // TODO
-  return Vec3::UnitX();
+  return {};
 }
 /**********************************
  * BSDF
