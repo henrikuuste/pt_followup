@@ -136,11 +136,13 @@ CU_D Radiance sampleLights(Intersection const &hit, DeviceScene const &scene, Tr
     Vec3 dir   = diff / norm;
     Ray obj2light{hit.x + dir * EPSILON, dir, 1};
 
-    Intersection lightIntersect = scene.intersect(obj2light, norm);
+    Intersection lightIntersect = scene.intersect(obj2light, norm, true);
     if (lightIntersect.object != &o) {
       continue; // occlusion
     }
-
+    if (hit.n.dot(dir) < 0) {
+      dir = -1 * dir;
+    }
     radiance += Le * hit.n.dot(dir) / ls.pdf;
   }
   return ms.fr.cwiseProduct(radiance);
@@ -242,17 +244,15 @@ CU_D ObjectSample Object::sample(Vec3 const &dir, TraceContext &ctx) const {
 CU_D ObjectSample Sphere::sample(Vec3 const &hitx, TraceContext &ctx,
                                  [[maybe_unused]] Object const *obj) const {
   Vec3 p     = cosineWeightedHemisphereSampling(ctx);
-  auto basis = onb(hitx - obj->tr.translation());
+  Vec3 dir   = hitx - obj->tr.translation();
+  float norm = dir.norm();
+  auto basis = onb(dir / norm);
   p          = basis.changeBasis(p);
-  p.normalized();
-  Vec3 n = p;
-  p      = radius * p + obj->tr.translation();
+  Vec3 n     = p;
+  p          = radius * n + obj->tr.translation();
 
-  float lightAngle = atan(radius / (obj->tr.translation() - hitx).norm());
-  // float solidAngle = R_PI * lightAngle * lightAngle;
-
-  float sinePart   = sin(lightAngle / 2);
-  float solidAngle = 4 * R_PI * sinePart * sinePart;
+  float lightAngle = atan(radius / norm);
+  float solidAngle = R_PI * lightAngle * lightAngle;
 
   return {1 / solidAngle, p, n};
 }
@@ -270,10 +270,10 @@ CU_D ObjectSample Disc::sample(Vec3 const &dir, TraceContext &ctx,
  * BSDF
  **********************************/
 CU_D Vec3 cosineWeightedHemisphereSampling(TraceContext &ctx) {
-  float r     = sqrt(ctx.sample1D());
+  float r2    = ctx.sample1D();
+  float r     = sqrt(r2);
   float theta = ctx.sample1D() * 2 * R_PI;
-  Vec3 p      = {r * cos(theta), r * sin(theta), 0};
-  p           = {p.x(), p.y(), sqrt(fmaxf(0.0f, 1.0 - p.x() * p.x() - p.y() * p.y()))};
+  Vec3 p      = {r * cos(theta), r * sin(theta), sqrt(1.0 - r2)};
   return p;
 }
 
@@ -284,8 +284,7 @@ CU_D Vec3 uniformHemisphereSampling(TraceContext &ctx) {
   return {r * cos(phi), r * sin(phi), z};
 }
 
-CU_D OrthonormalBasis onb(Vec3 const &dir) {
-  Vec3 normal = dir.normalized();
+CU_D OrthonormalBasis onb(Vec3 const &normal) {
   Vec3 binormal;
   if (fabs(normal.x()) > fabs(normal.z())) {
     binormal.x() = -normal.y();
@@ -297,7 +296,7 @@ CU_D OrthonormalBasis onb(Vec3 const &dir) {
     binormal.z() = normal.y();
   }
   binormal     = binormal.normalized();
-  Vec3 tangent = binormal.cross(normal).normalized();
+  Vec3 tangent = binormal.cross(normal);
 
   return {normal, binormal, tangent};
 }

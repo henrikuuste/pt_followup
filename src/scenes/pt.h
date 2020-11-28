@@ -142,14 +142,14 @@ struct alignas(16) Object {
 
 struct DeviceScene {
   cuda::raw_ptr<Object> objects;
-  CU_HD Intersection intersect(Ray const &r, float dist = 0) const {
+  CU_HD Intersection intersect(Ray const &r, float dist = 0, bool compare = false) const {
     Intersection ret;
     for (auto &o : objects) {
       auto test = o.intersect(r);
       if (test < ret) {
         ret = test;
-        if (dist) {
-          if (ret.distance + EPSILON < dist) {
+        if (compare) {
+          if (ret.distance + EPSILON < dist && ret.distance > 0) {
             break;
           }
         }
