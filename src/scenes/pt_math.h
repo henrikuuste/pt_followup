@@ -26,3 +26,12 @@ struct Ray {
 inline CU_HD Ray operator*(Affine const &t, Ray const &r) {
   return {t * r.origin, (t.linear() * r.dir).normalized(), r.depth};
 }
+
+struct OrthonormalBasis {
+  Vec3 normal;
+  Vec3 binormal;
+  Vec3 tangent;
+  CU_HD Vec3 changeBasis(Vec3 &v) const {
+    return v.x() * tangent + v.y() * binormal + v.z() * normal;
+  }
+};

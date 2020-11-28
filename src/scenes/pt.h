@@ -142,12 +142,18 @@ struct alignas(16) Object {
 
 struct DeviceScene {
   cuda::raw_ptr<Object> objects;
-  CU_HD Intersection intersect(Ray const &r) const {
+  CU_HD Intersection intersect(Ray const &r, float dist = 0) const {
     Intersection ret;
     for (auto &o : objects) {
       auto test = o.intersect(r);
-      if (test < ret)
+      if (test < ret) {
         ret = test;
+        if (dist) {
+          if (ret.distance + EPSILON < dist) {
+            break;
+          }
+        }
+      }
     }
     return ret;
   }
@@ -187,7 +193,8 @@ CU_D Radiance sampleLights(Intersection const &hit, DeviceScene const &scene, Tr
                            MaterialSample &ms);
 CU_D Radiance trace(DeviceScene const &scene, Ray const &wo, TraceContext &ctx);
 CU_D Vec3 uniformHemisphereSampling(TraceContext &ctx);
-CU_D Vec3 onb(Vec3 const &p, Vec3 const &dir);
+CU_D Vec3 cosineWeightedHemisphereSampling(TraceContext &ctx);
+CU_D OrthonormalBasis onb(Vec3 const &dir);
 
 struct PathTracer {
   cuda::owning_ptr<Radiance> radianceBuffer;

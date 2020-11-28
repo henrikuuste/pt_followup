@@ -127,19 +127,21 @@ CU_D Radiance sampleLights(Intersection const &hit, DeviceScene const &scene, Tr
       continue;
     }
 
-    // auto ls = o.sample(hit.x, ctx);
-    // if (ls.pdf < EPSILON)
-    //   continue;
+    auto ls = o.sample(hit.x, ctx);
+    if (ls.pdf < EPSILON) {
+      continue;
+    }
+    Vec3 diff  = ls.p - hit.x;
+    float norm = diff.norm();
+    Vec3 dir   = diff / norm;
+    Ray obj2light{hit.x + dir * EPSILON, dir, 1};
 
-    auto ls   = o.sample(hit.x, ctx);
-    Vec3 diff = ls.p - hit.x;
-    Ray obj2light{hit.x + hit.n * EPSILON, diff.normalized(), 1};
-    Intersection lightIntersect = scene.intersect(obj2light);
+    Intersection lightIntersect = scene.intersect(obj2light, norm);
     if (lightIntersect.object != &o) {
       continue; // occlusion
     }
 
-    radiance += Le * hit.n.dot(diff.normalized()) / ls.pdf;
+    radiance += Le * hit.n.dot(dir) / ls.pdf;
   }
   return ms.fr.cwiseProduct(radiance);
 }
@@ -239,13 +241,18 @@ CU_D ObjectSample Object::sample(Vec3 const &dir, TraceContext &ctx) const {
 
 CU_D ObjectSample Sphere::sample(Vec3 const &hitx, TraceContext &ctx,
                                  [[maybe_unused]] Object const *obj) const {
-  Vec3 p = uniformHemisphereSampling(ctx);
-  p      = onb(p, obj->tr.translation() - hitx);
-  Vec3 n = p.normalized();
+  Vec3 p     = cosineWeightedHemisphereSampling(ctx);
+  auto basis = onb(hitx - obj->tr.translation());
+  p          = basis.changeBasis(p);
+  p.normalized();
+  Vec3 n = p;
   p      = radius * p + obj->tr.translation();
 
-  float lightAngle = atan(radius / (p - hitx).norm());
-  float solidAngle = R_PI * lightAngle * lightAngle;
+  float lightAngle = atan(radius / (obj->tr.translation() - hitx).norm());
+  // float solidAngle = R_PI * lightAngle * lightAngle;
+
+  float sinePart   = sin(lightAngle / 2);
+  float solidAngle = 4 * R_PI * sinePart * sinePart;
 
   return {1 / solidAngle, p, n};
 }
@@ -262,14 +269,22 @@ CU_D ObjectSample Disc::sample(Vec3 const &dir, TraceContext &ctx,
 /**********************************
  * BSDF
  **********************************/
-CU_D Vec3 uniformHemisphereSampling(TraceContext &ctx) {
+CU_D Vec3 cosineWeightedHemisphereSampling(TraceContext &ctx) {
   float r     = sqrt(ctx.sample1D());
   float theta = ctx.sample1D() * 2 * R_PI;
-  Vec3 p      = {r * cos(theta), 0, r * sin(theta)};
-  p           = {p.x(), sqrt(fmaxf(0.0f, 1.0 - p.x() * p.x() - p.z() * p.z())), p.z()};
+  Vec3 p      = {r * cos(theta), r * sin(theta), 0};
+  p           = {p.x(), p.y(), sqrt(fmaxf(0.0f, 1.0 - p.x() * p.x() - p.y() * p.y()))};
   return p;
 }
-CU_D Vec3 onb(Vec3 const &o, Vec3 const &dir) {
+
+CU_D Vec3 uniformHemisphereSampling(TraceContext &ctx) {
+  float z   = ctx.sample1D();
+  float r   = sqrt(fmaxf(0.0, 1.0 - z * z));
+  float phi = R_2PI * ctx.sample1D();
+  return {r * cos(phi), r * sin(phi), z};
+}
+
+CU_D OrthonormalBasis onb(Vec3 const &dir) {
   Vec3 normal = dir.normalized();
   Vec3 binormal;
   if (fabs(normal.x()) > fabs(normal.z())) {
@@ -284,8 +299,7 @@ CU_D Vec3 onb(Vec3 const &o, Vec3 const &dir) {
   binormal     = binormal.normalized();
   Vec3 tangent = binormal.cross(normal).normalized();
 
-  Vec3 p = o.x() * tangent + o.y() * normal + o.z() * binormal;
-  return p;
+  return {normal, binormal, tangent};
 }
 
 CU_D MaterialSample Material::sample(Intersection const &i, Ray const &wo,
@@ -293,11 +307,12 @@ CU_D MaterialSample Material::sample(Intersection const &i, Ray const &wo,
   MaterialSample ms;
 
   if (type == DIFF) {
-    ms.fr  = diffuse / R_PI;
-    Vec3 d = uniformHemisphereSampling(ctx);
-    d      = onb(d, i.n);
-    ms.wi  = {i.x + i.n * EPSILON, d, wo.depth + 1};
-    ms.pdf = 1.f / R_2PI;
+    ms.fr      = diffuse / R_PI;
+    Vec3 d     = uniformHemisphereSampling(ctx);
+    auto basis = onb(i.n);
+    d          = basis.changeBasis(d);
+    ms.wi      = {i.x + i.n * EPSILON, d, wo.depth + 1};
+    ms.pdf     = 1.f / R_2PI;
   } else if (type == SPEC) {
     ms.fr  = diffuse;
     ms.wi  = {i.x, wo.dir - i.n * 2 * i.n.dot(wo.dir), wo.depth + 1};
