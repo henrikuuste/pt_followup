@@ -149,7 +149,7 @@ struct DeviceScene {
       if (test < ret) {
         ret = test;
         if (compare) {
-          if (ret.distance + EPSILON < dist && ret.distance > 0) {
+          if (ret.distance + EPSILON < dist) {
             break;
           }
         }

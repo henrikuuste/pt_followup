@@ -140,10 +140,9 @@ CU_D Radiance sampleLights(Intersection const &hit, DeviceScene const &scene, Tr
     if (lightIntersect.object != &o) {
       continue; // occlusion
     }
-    if (hit.n.dot(dir) < 0) {
-      dir = -1 * dir;
+    if (hit.n.dot(dir) > 0) {
+      radiance += Le * hit.n.dot(dir) / ls.pdf;
     }
-    radiance += Le * hit.n.dot(dir) / ls.pdf;
   }
   return ms.fr.cwiseProduct(radiance);
 }
@@ -243,13 +242,12 @@ CU_D ObjectSample Object::sample(Vec3 const &dir, TraceContext &ctx) const {
 
 CU_D ObjectSample Sphere::sample(Vec3 const &hitx, TraceContext &ctx,
                                  [[maybe_unused]] Object const *obj) const {
-  Vec3 p     = cosineWeightedHemisphereSampling(ctx);
+  Vec3 n     = cosineWeightedHemisphereSampling(ctx);
   Vec3 dir   = hitx - obj->tr.translation();
   float norm = dir.norm();
   auto basis = onb(dir / norm);
-  p          = basis.changeBasis(p);
-  Vec3 n     = p;
-  p          = radius * n + obj->tr.translation();
+  n          = basis.changeBasis(n);
+  Vec3 p     = radius * n + obj->tr.translation();
 
   float lightAngle = atan(radius / norm);
   float solidAngle = R_PI * lightAngle * lightAngle;
