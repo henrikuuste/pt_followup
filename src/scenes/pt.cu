@@ -133,16 +133,21 @@ CU_D Radiance sampleLights(Intersection const &hit, DeviceScene const &scene, Tr
     }
     Vec3 diff  = ls.p - hit.x;
     float norm = diff.norm();
-    Vec3 dir   = diff / norm;
+
+    Vec3 dir = diff / norm;
+
+    float cosine = hit.n.dot(dir);
+    if (cosine <= 0) {
+      continue;
+    }
+
     Ray obj2light{hit.x + dir * EPSILON, dir, 1};
 
     Intersection lightIntersect = scene.intersect(obj2light, norm, true);
     if (lightIntersect.object != &o) {
       continue; // occlusion
     }
-    if (hit.n.dot(dir) > 0) {
-      radiance += Le * hit.n.dot(dir) / ls.pdf;
-    }
+    radiance += Le * cosine / ls.pdf;
   }
   return ms.fr.cwiseProduct(radiance);
 }
