@@ -68,9 +68,10 @@ void PathTracer::renderCuda(Scene const &scene, Camera const &cam, std::mutex &s
  **********************************/
 
 CU_D Radiance trace(DeviceScene const &scene, Ray const &primary, TraceContext &ctx) {
-  Radiance Lo          = Radiance::Zero();
-  Ray wo               = primary;
-  Radiance attenuation = Radiance::Ones();
+  Radiance Lo                         = Radiance::Zero();
+  Ray wo                              = primary;
+  Radiance attenuation                = Radiance::Ones();
+  Material::MaterialType lastMaterial = Material::SPEC; // Init as SPEC for Le at depth==0
 
   for (size_t depth = 0; depth < ctx.app->max_depth; ++depth) {
     auto hit = scene.intersect(wo);
@@ -93,13 +94,62 @@ CU_D Radiance trace(DeviceScene const &scene, Ray const &primary, TraceContext &
       }
     }
 
-    Lo += attenuation.cwiseProduct(hit.object->mat.Le(hit, wo));
-    auto ms     = hit.object->mat.sample(hit, wo, ctx);
-    attenuation = attenuation.cwiseProduct(ms.fr * ms.wi.dir.dot(hit.n) / ms.pdf);
-    wo          = ms.wi;
+    if (lastMaterial == Material::SPEC || !(ctx.app->enable_NEE)) {
+      Lo += attenuation.cwiseProduct(hit.object->mat.Le(hit, wo));
+    }
+    auto ms = hit.object->mat.sample(hit, wo, ctx);
+
+    if (ctx.app->enable_NEE) {
+      Lo += attenuation.cwiseProduct(sampleLights(hit, scene, ctx, ms));
+    }
+
+    attenuation  = attenuation.cwiseProduct(ms.fr * ms.wi.dir.dot(hit.n) / ms.pdf);
+    wo           = ms.wi;
+    lastMaterial = hit.object->mat.type;
   }
 
   return Lo;
+}
+
+CU_D Radiance sampleLights(Intersection const &hit, DeviceScene const &scene, TraceContext &ctx,
+                           MaterialSample &ms) {
+  Radiance radiance{0.0f, 0.0f, 0.0f};
+  for (auto &o : scene.objects) {
+
+    Radiance Le = o.mat.emittance;
+    if (Le.isZero(0) || &o == hit.object) {
+      continue;
+    }
+    if (o.type != SPHERE) {
+      continue;
+    }
+    if (hit.object->mat.type == Material::SPEC) {
+      continue;
+    }
+
+    auto ls = o.sample(hit.x, ctx);
+    if (ls.pdf < EPSILON) {
+      continue;
+    }
+    Vec3 diff  = ls.p - hit.x;
+    float norm = diff.norm();
+
+    Vec3 dir = diff / norm;
+
+    float cosine = hit.n.dot(dir);
+    if (cosine <= 0) {
+      continue;
+    }
+
+    Ray obj2light{hit.x + dir * EPSILON, dir, 1};
+
+    Intersection lightIntersect = scene.intersect(obj2light, norm, true);
+    if (lightIntersect.object != &o) {
+      continue; // occlusion
+    }
+    radiance += Le * cosine / ls.pdf;
+  }
+  return ms.fr.cwiseProduct(radiance);
 }
 
 /**********************************
@@ -183,29 +233,93 @@ CU_HD Intersection Disc::intersect(Ray const &r, Object const *obj) const {
   return {t, obj, x, normal};
 }
 
+CU_D ObjectSample Object::sample(Vec3 const &dir, TraceContext &ctx) const {
+  ObjectSample sample;
+  if (type == SPHERE) {
+    sample = sphere.sample(dir, ctx, this);
+  } else if (type == PLANE) {
+    sample = plane.sample(dir, ctx, this);
+  } else if (type == DISC) {
+    sample = disc.sample(dir, ctx, this);
+  }
+  return sample;
+}
+
+CU_D ObjectSample Sphere::sample(Vec3 const &hitx, TraceContext &ctx,
+                                 [[maybe_unused]] Object const *obj) const {
+  Vec3 n     = cosineWeightedHemisphereSampling(ctx);
+  Vec3 dir   = hitx - obj->tr.translation();
+  float norm = dir.norm();
+  auto basis = onb(dir / norm);
+  n          = basis.changeBasis(n);
+  Vec3 p     = radius * n + obj->tr.translation();
+
+  float lightAngle = atan(radius / norm);
+  float solidAngle = R_PI * lightAngle * lightAngle;
+
+  return {1 / solidAngle, p, n};
+}
+CU_D ObjectSample Plane::sample(Vec3 const &dir, TraceContext &ctx,
+                                [[maybe_unused]] Object const *obj) const {
+  // TODO
+  return {};
+}
+CU_D ObjectSample Disc::sample(Vec3 const &dir, TraceContext &ctx,
+                               [[maybe_unused]] Object const *obj) const {
+  // TODO
+  return {};
+}
 /**********************************
  * BSDF
  **********************************/
+CU_D Vec3 cosineWeightedHemisphereSampling(TraceContext &ctx) {
+  float r2    = ctx.sample1D();
+  float r     = sqrt(r2);
+  float theta = ctx.sample1D() * 2 * R_PI;
+  Vec3 p      = {r * cos(theta), r * sin(theta), sqrt(1.0 - r2)};
+  return p;
+}
+
+CU_D Vec3 uniformHemisphereSampling(TraceContext &ctx) {
+  float z   = ctx.sample1D();
+  float r   = sqrt(fmaxf(0.0, 1.0 - z * z));
+  float phi = R_2PI * ctx.sample1D();
+  return {r * cos(phi), r * sin(phi), z};
+}
+
+CU_D OrthonormalBasis onb(Vec3 const &normal) {
+  Vec3 binormal;
+  if (fabs(normal.x()) > fabs(normal.z())) {
+    binormal.x() = -normal.y();
+    binormal.y() = normal.x();
+    binormal.z() = 0;
+  } else {
+    binormal.x() = 0;
+    binormal.y() = -normal.z();
+    binormal.z() = normal.y();
+  }
+  binormal     = binormal.normalized();
+  Vec3 tangent = binormal.cross(normal);
+
+  return {normal, binormal, tangent};
+}
 
 CU_D MaterialSample Material::sample(Intersection const &i, Ray const &wo,
                                      TraceContext &ctx) const {
   MaterialSample ms;
 
   if (type == DIFF) {
-    ms.fr  = diffuse / R_PI;
-    Vec3 d = (ctx.sample3D() * 2.f - Vec3::Ones()).normalized();
-    if (d.dot(i.n) < 0) {
-      d = -d;
-    }
-    ms.wi  = {i.x + i.n * EPSILON, d, wo.depth + 1};
-    ms.pdf = 1.f / R_2PI;
+    ms.fr      = diffuse / R_PI;
+    Vec3 d     = uniformHemisphereSampling(ctx);
+    auto basis = onb(i.n);
+    d          = basis.changeBasis(d);
+    ms.wi      = {i.x + i.n * EPSILON, d, wo.depth + 1};
+    ms.pdf     = 1.f / R_2PI;
   } else if (type == SPEC) {
     ms.fr  = diffuse;
     ms.wi  = {i.x, wo.dir - i.n * 2 * i.n.dot(wo.dir), wo.depth + 1};
     ms.pdf = ms.wi.dir.dot(i.n);
   } else {
-    // spdlog::error("Not implemented");
-    // abort();
     asm("exit;");
   }
   return ms;

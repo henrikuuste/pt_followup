@@ -22,6 +22,12 @@ struct MaterialSample {
   float pdf;
 };
 
+struct ObjectSample {
+  float pdf;
+  Vec3 p;
+  Vec3 n;
+};
+
 struct Object;
 
 struct Intersection {
@@ -59,17 +65,20 @@ struct alignas(8) Material {
 struct Sphere {
   float radius = 1.f;
   CU_HD Intersection intersect(Ray const &r, Object const *obj) const;
+  CU_D ObjectSample sample(Vec3 const &dir, TraceContext &ctx, Object const *obj) const;
 };
 
 struct Plane {
   Vec3 normal = Vec3::UnitY();
   CU_HD Intersection intersect(Ray const &r, Object const *obj) const;
+  CU_D ObjectSample sample(Vec3 const &dir, TraceContext &ctx, Object const *obj) const;
 };
 
 struct Disc {
   Vec3 normal  = Vec3::UnitY();
   float radius = 1.f;
   CU_HD Intersection intersect(Ray const &r, Object const *obj) const;
+  CU_D ObjectSample sample(Vec3 const &dir, TraceContext &ctx, Object const *obj) const;
 };
 
 enum ObjectType {
@@ -128,16 +137,23 @@ struct alignas(16) Object {
   }
 
   CU_HD Intersection intersect(Ray const &r) const;
+  CU_D ObjectSample sample(Vec3 const &dir, TraceContext &ctx) const;
 };
 
 struct DeviceScene {
   cuda::raw_ptr<Object> objects;
-  CU_HD Intersection intersect(Ray const &r) const {
+  CU_HD Intersection intersect(Ray const &r, float dist = 0, bool compare = false) const {
     Intersection ret;
     for (auto &o : objects) {
       auto test = o.intersect(r);
-      if (test < ret)
+      if (test < ret) {
         ret = test;
+        if (compare) {
+          if (ret.distance + EPSILON < dist) {
+            break;
+          }
+        }
+      }
     }
     return ret;
   }
@@ -173,7 +189,12 @@ CU_HD inline bool shouldTerminate(Ray const &r, TraceContext &ctx) {
   return r.depth > ctx.app->max_depth;
 }
 
+CU_D Radiance sampleLights(Intersection const &hit, DeviceScene const &scene, TraceContext &ctx,
+                           MaterialSample &ms);
 CU_D Radiance trace(DeviceScene const &scene, Ray const &wo, TraceContext &ctx);
+CU_D Vec3 uniformHemisphereSampling(TraceContext &ctx);
+CU_D Vec3 cosineWeightedHemisphereSampling(TraceContext &ctx);
+CU_D OrthonormalBasis onb(Vec3 const &dir);
 
 struct PathTracer {
   cuda::owning_ptr<Radiance> radianceBuffer;

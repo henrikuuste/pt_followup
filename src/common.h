@@ -49,6 +49,7 @@ struct AppContext {
   int samples           = 1;
   float far_plane       = 20.f;
   bool request_reset    = true;
+  bool enable_NEE       = true;
   // std::map<std::string, bool> features;
   DisplayMode mode = DisplayMode::Color;
 };
